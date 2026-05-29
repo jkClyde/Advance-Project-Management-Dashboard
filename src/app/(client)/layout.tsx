@@ -13,10 +13,10 @@ export default async function ClientLayout({
                                            }: {
   children: React.ReactNode
 }) {
-  // const session = await getServerSession(authOptions)
-  // if (!session) {
-  //   redirect("/login")
-  // }
+  const session = await getServerSession(authOptions)
+  if (!session) {
+    redirect("/login")
+  }
 
   const cookieStore = await cookies()
   const defaultOpen = cookieStore.get("sidebar_state")?.value === "true"
