@@ -1,0 +1,245 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// =============================
+// AUTH MODELS (NextAuth)
+// =============================
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  projectMembers ProjectMember[]
+  assignedTasks  Task[]          @relation("TaskAssignee")
+  createdTasks   Task[]          @relation("TaskCreator")
+  comments       Comment[]
+  notifications  Notification[]
+  activityLogs   ActivityLog[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// =============================
+// PROJECT MODELS
+// =============================
+
+model Project {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  visibility  Visibility    @default(PRIVATE)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  ownerId     String
+
+  members     ProjectMember[]
+  tasks       Task[]
+  labels      Label[]
+  activityLogs ActivityLog[]
+}
+
+model ProjectMember {
+  id        String      @id @default(cuid())
+  projectId String
+  userId    String
+  role      MemberRole  @default(CONTRIBUTOR)
+  joinedAt  DateTime    @default(now())
+
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+}
+
+// =============================
+// TASK MODELS
+// =============================
+
+model Task {
+  id          String      @id @default(cuid())
+  title       String
+  description String?
+  status      TaskStatus  @default(OPEN)
+  priority    Priority    @default(MEDIUM)
+  dueDate     DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  projectId   String
+  creatorId   String
+  assigneeId  String?
+
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  creator     User        @relation("TaskCreator", fields: [creatorId], references: [id])
+  assignee    User?       @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  comments    Comment[]
+  labels      TaskLabel[]
+  activityLogs ActivityLog[]
+}
+
+model Label {
+  id        String      @id @default(cuid())
+  name      String
+  color     String      @default("#6366f1")
+  projectId String
+
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks     TaskLabel[]
+
+  @@unique([name, projectId])
+}
+
+model TaskLabel {
+  taskId  String
+  labelId String
+
+  task    Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  label   Label   @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, labelId])
+}
+
+// =============================
+// COMMENT MODEL
+// =============================
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  taskId    String
+  authorId  String
+
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+}
+
+// =============================
+// NOTIFICATION MODEL
+// =============================
+
+model Notification {
+  id        String           @id @default(cuid())
+  type      NotificationType
+  message   String
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// =============================
+// ACTIVITY LOG MODEL
+// =============================
+
+model ActivityLog {
+  id        String       @id @default(cuid())
+  action    ActivityAction
+  message   String
+  createdAt DateTime     @default(now())
+
+  projectId String
+  userId    String
+  taskId    String?
+
+  project   Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task      Task?        @relation(fields: [taskId], references: [id], onDelete: SetNull)
+}
+
+// =============================
+// ENUMS
+// =============================
+
+enum Visibility {
+  PRIVATE
+  TEAM
+}
+
+enum MemberRole {
+  OWNER
+  MAINTAINER
+  CONTRIBUTOR
+}
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  CLOSED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_MENTIONED
+  STATUS_CHANGED
+  DEADLINE_REMINDER
+  MEMBER_ADDED
+}
+
+enum ActivityAction {
+  TASK_CREATED
+  TASK_CLOSED
+  TASK_UPDATED
+  STATUS_CHANGED
+  MEMBER_ADDED
+  MEMBER_REMOVED
+  COMMENT_ADDED
+  LABEL_ADDED
+}
