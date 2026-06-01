@@ -13,7 +13,6 @@ export const getProjectsByUserId = unstable_cache(
         description: true,
         visibility: true,
         updatedAt: true,
-        // Only get first 4 members, only needed fields
         members: {
           select: {
             user: {
@@ -26,7 +25,6 @@ export const getProjectsByUserId = unstable_cache(
           },
           take: 4,
         },
-        // Get counts in same query
         _count: {
           select: {
             tasks: true,
@@ -41,60 +39,54 @@ export const getProjectsByUserId = unstable_cache(
   { revalidate: 30 }
 );
 
-export const getProjectById = unstable_cache(
-  async (projectId: string, userId: string) => {
-    return prisma.project.findFirst({
-      where: {
-        id: projectId,
-        members: { some: { userId } },
-      },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        visibility: true,
-        ownerId: true,
-        createdAt: true,
-        updatedAt: true,
-        members: {
-          select: {
-            role: true,
-            joinedAt: true,
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                image: true,
-              },
+// ✅ No unstable_cache — plain async, arguments passed directly
+export const getProjectById = async (projectId: string, userId: string) => {
+  return prisma.project.findFirst({
+    where: {
+      id: projectId,
+      members: { some: { userId } },
+    },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      visibility: true,
+      ownerId: true,
+      createdAt: true,
+      updatedAt: true,
+      members: {
+        select: {
+          role: true,
+          joinedAt: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              image: true,
             },
           },
         },
-        labels: true,
-        _count: {
-          select: {
-            tasks: true,
-            members: true,
-          },
+      },
+      labels: true,
+      _count: {
+        select: {
+          tasks: true,
+          members: true,
         },
       },
-    });
-  },
-  ["project-by-id"],
-  { revalidate: 30 }
-);
+    },
+  });
+};
 
-export const getProjectMember = unstable_cache(
-  async (projectId: string, userId: string) => {
-    return prisma.projectMember.findUnique({
-      where: {
-        projectId_userId: { projectId, userId },
-      },
-    });
-  },
-  ["project-member"],
-  { revalidate: 30 }
-);
+// ✅ No unstable_cache — plain async
+export const getProjectMember = async (projectId: string, userId: string) => {
+  return prisma.projectMember.findUnique({
+    where: {
+      projectId_userId: { projectId, userId },
+    },
+  });
+};
 
 export const getOpenTaskCountsByUser = unstable_cache(
   async (userId: string) => {

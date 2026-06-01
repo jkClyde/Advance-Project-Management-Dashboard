@@ -186,3 +186,15 @@ export const getTaskStatsByUserId = unstable_cache(
   ["task-stats-by-user"],
   { revalidate: 30 }
 );
+
+export const getTaskStatsByProject = unstable_cache(
+  async (projectId: string) => {
+    return prisma.task.groupBy({
+      by: ["status"],
+      where: { projectId },
+      _count: { status: true },
+    });
+  },
+  ["task-stats-by-project"],
+  { revalidate: 30 }
+);
