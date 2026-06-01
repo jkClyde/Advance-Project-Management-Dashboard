@@ -13,7 +13,7 @@ export const createTaskSchema = z.object({
   status: z.nativeEnum(TaskStatus).default(TaskStatus.OPEN),
   priority: z.nativeEnum(Priority).default(Priority.MEDIUM),
   assigneeId: z.string().optional(),
-  dueDate: z.string().datetime().optional(),
+  dueDate: z.string().optional(),
   labelIds: z.array(z.string()).optional(),
 });
 

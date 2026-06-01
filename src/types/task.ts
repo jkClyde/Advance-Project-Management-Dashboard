@@ -34,4 +34,10 @@ export type CommentWithAuthor = Comment & {
   author: User;
 };
 
+// ✅ Add this
+export type TaskStat = {
+  status: TaskStatus;
+  _count: { status: number };
+};
+
 export { TaskStatus, Priority };
