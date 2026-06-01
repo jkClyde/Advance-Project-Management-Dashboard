@@ -1,6 +1,14 @@
 import { PrismaClient, MemberRole, Visibility, TaskStatus, Priority, NotificationType, ActivityAction } from "@prisma/client";
+import { PrismaNeon } from "@prisma/adapter-neon";
+import * as dotenv from "dotenv";
 
-const prisma = new PrismaClient();
+dotenv.config();
+
+const adapter = new PrismaNeon({
+  connectionString: process.env.DIRECT_URL!,
+});
+
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
   console.log("🌱 Seeding database...");
