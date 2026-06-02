@@ -109,7 +109,7 @@ export default async function TasksPage({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold">Tasksss</h2>
+          <h2 className="text-xl font-bold">Tasks</h2>
           <p className="text-muted-foreground text-sm mt-1">
             {tasks.length} task{tasks.length !== 1 ? "s" : ""} in this project
           </p>
