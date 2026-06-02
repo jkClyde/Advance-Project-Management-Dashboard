@@ -23,18 +23,34 @@ export type TaskWithDetails = Task & {
 };
 
 export type TaskWithAssignee = Task & {
-  assignee: User | null;
-  creator: User;
+  assignee: {
+    id: string;
+    name: string | null;
+    email: string | null;
+    image: string | null;
+  } | null;
+  creator: {
+    id: string;
+    name: string | null;
+    email: string | null;
+    image: string | null;
+  };
   labels: (TaskLabel & {
-    label: Label;
+    label: {
+      id: string;
+      name: string;
+      color: string;
+    };
   })[];
+  _count: {
+    comments: number;
+  };
 };
 
 export type CommentWithAuthor = Comment & {
   author: User;
 };
 
-// ✅ Add this
 export type TaskStat = {
   status: TaskStatus;
   _count: { status: number };
