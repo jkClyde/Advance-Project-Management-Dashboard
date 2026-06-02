@@ -4,11 +4,13 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { createCommentSchema, updateCommentSchema } from "@/lib/validations/task";
 import { NotificationType } from "@prisma/client";
+import { revalidatePath } from "next/cache";
 
-// GET /api/projects/[projectId]/tasks/[taskId]/comments - Get all comments
+type Params = Promise<{ projectId: string; taskId: string }>;
+
 export async function GET(
   req: NextRequest,
-  { params }: { params: { projectId: string; taskId: string } }
+  { params }: { params: Params }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -16,11 +18,12 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if user is a member
+    const { projectId, taskId } = await params;
+
     const isMember = await prisma.projectMember.findUnique({
       where: {
         projectId_userId: {
-          projectId: params.projectId,
+          projectId,
           userId: session.user.id,
         },
       },
@@ -31,13 +34,9 @@ export async function GET(
     }
 
     const comments = await prisma.comment.findMany({
-      where: { taskId: params.taskId },
-      include: {
-        author: true,
-      },
-      orderBy: {
-        createdAt: "asc",
-      },
+      where: { taskId },
+      include: { author: true },
+      orderBy: { createdAt: "asc" },
     });
 
     return NextResponse.json(comments);
@@ -50,10 +49,9 @@ export async function GET(
   }
 }
 
-// POST /api/projects/[projectId]/tasks/[taskId]/comments - Create a comment
 export async function POST(
   req: NextRequest,
-  { params }: { params: { projectId: string; taskId: string } }
+  { params }: { params: Params }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -61,11 +59,12 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if user is a member
+    const { projectId, taskId } = await params;
+
     const isMember = await prisma.projectMember.findUnique({
       where: {
         projectId_userId: {
-          projectId: params.projectId,
+          projectId,
           userId: session.user.id,
         },
       },
@@ -87,9 +86,8 @@ export async function POST(
 
     const { content } = result.data;
 
-    // Get task details for notifications
     const task = await prisma.task.findUnique({
-      where: { id: params.taskId },
+      where: { id: taskId },
       select: {
         title: true,
         assigneeId: true,
@@ -104,35 +102,28 @@ export async function POST(
     const comment = await prisma.comment.create({
       data: {
         content,
-        taskId: params.taskId,
+        taskId,
         authorId: session.user.id,
       },
-      include: {
-        author: true,
-      },
+      include: { author: true },
     });
 
-    // Handle @mentions in comment content
     const mentionRegex = /@(\w+)/g;
     const mentions = content.match(mentionRegex);
 
     if (mentions) {
-      // Get all project members
       const projectMembers = await prisma.projectMember.findMany({
-        where: { projectId: params.projectId },
+        where: { projectId },
         include: { user: true },
       });
 
       for (const mention of mentions) {
-        const username = mention.slice(1); // Remove @
+        const username = mention.slice(1);
         const mentionedMember = projectMembers.find(
           (m) => m.user.name?.toLowerCase() === username.toLowerCase()
         );
 
-        if (
-          mentionedMember &&
-          mentionedMember.userId !== session.user.id
-        ) {
+        if (mentionedMember && mentionedMember.userId !== session.user.id) {
           await prisma.notification.create({
             data: {
               type: NotificationType.TASK_MENTIONED,
@@ -144,7 +135,6 @@ export async function POST(
       }
     }
 
-    // Notify task assignee if they didn't write the comment
     if (task.assigneeId && task.assigneeId !== session.user.id) {
       await prisma.notification.create({
         data: {
@@ -155,7 +145,6 @@ export async function POST(
       });
     }
 
-    // Notify task creator if they didn't write the comment
     if (
       task.creatorId !== session.user.id &&
       task.creatorId !== task.assigneeId
@@ -169,16 +158,18 @@ export async function POST(
       });
     }
 
-    // Log activity
     await prisma.activityLog.create({
       data: {
         action: "COMMENT_ADDED",
         message: `A comment was added to task "${task.title}"`,
-        projectId: params.projectId,
+        projectId,
         userId: session.user.id,
-        taskId: params.taskId,
+        taskId,
       },
     });
+
+    revalidatePath(`/projects/${projectId}/tasks/${taskId}`);
+    revalidatePath(`/projects/${projectId}/activity`);
 
     return NextResponse.json(comment, { status: 201 });
   } catch (error) {
@@ -190,16 +181,17 @@ export async function POST(
   }
 }
 
-// PATCH /api/projects/[projectId]/tasks/[taskId]/comments - Update a comment
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { projectId: string; taskId: string } }
+  { params }: { params: Params }
 ) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const { projectId, taskId } = await params;
 
     const body = await req.json();
     const { commentId, ...rest } = body;
@@ -212,7 +204,6 @@ export async function PATCH(
       );
     }
 
-    // Check if user is the author
     const existingComment = await prisma.comment.findUnique({
       where: { id: commentId },
       select: { authorId: true },
@@ -229,10 +220,10 @@ export async function PATCH(
     const comment = await prisma.comment.update({
       where: { id: commentId },
       data: result.data,
-      include: {
-        author: true,
-      },
+      include: { author: true },
     });
+
+    revalidatePath(`/projects/${projectId}/tasks/${taskId}`);
 
     return NextResponse.json(comment);
   } catch (error) {
@@ -244,16 +235,17 @@ export async function PATCH(
   }
 }
 
-// DELETE /api/projects/[projectId]/tasks/[taskId]/comments - Delete a comment
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { projectId: string; taskId: string } }
+  { params }: { params: Params }
 ) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const { projectId, taskId } = await params;
 
     const { searchParams } = new URL(req.url);
     const commentId = searchParams.get("commentId");
@@ -265,7 +257,6 @@ export async function DELETE(
       );
     }
 
-    // Check if user is the author or owner/maintainer
     const [comment, member] = await Promise.all([
       prisma.comment.findUnique({
         where: { id: commentId },
@@ -274,7 +265,7 @@ export async function DELETE(
       prisma.projectMember.findUnique({
         where: {
           projectId_userId: {
-            projectId: params.projectId,
+            projectId,
             userId: session.user.id,
           },
         },
@@ -296,6 +287,8 @@ export async function DELETE(
     await prisma.comment.delete({
       where: { id: commentId },
     });
+
+    revalidatePath(`/projects/${projectId}/tasks/${taskId}`);
 
     return NextResponse.json({ message: "Comment deleted successfully" });
   } catch (error) {

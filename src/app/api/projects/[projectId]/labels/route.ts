@@ -3,11 +3,13 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { createLabelSchema, updateLabelSchema } from "@/lib/validations/task";
+import { revalidatePath } from "next/cache";
 
-// GET /api/projects/[projectId]/labels - Get all labels
+type Params = Promise<{ projectId: string }>;
+
 export async function GET(
   req: NextRequest,
-  { params }: { params: { projectId: string } }
+  { params }: { params: Params }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -15,11 +17,12 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if user is a member
+    const { projectId } = await params;
+
     const isMember = await prisma.projectMember.findUnique({
       where: {
         projectId_userId: {
-          projectId: params.projectId,
+          projectId,
           userId: session.user.id,
         },
       },
@@ -30,17 +33,13 @@ export async function GET(
     }
 
     const labels = await prisma.label.findMany({
-      where: { projectId: params.projectId },
+      where: { projectId },
       include: {
         _count: {
-          select: {
-            tasks: true,
-          },
+          select: { tasks: true },
         },
       },
-      orderBy: {
-        name: "asc",
-      },
+      orderBy: { name: "asc" },
     });
 
     return NextResponse.json(labels);
@@ -53,10 +52,9 @@ export async function GET(
   }
 }
 
-// POST /api/projects/[projectId]/labels - Create a label
 export async function POST(
   req: NextRequest,
-  { params }: { params: { projectId: string } }
+  { params }: { params: Params }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -64,11 +62,12 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if user is owner or maintainer
+    const { projectId } = await params;
+
     const member = await prisma.projectMember.findUnique({
       where: {
         projectId_userId: {
-          projectId: params.projectId,
+          projectId,
           userId: session.user.id,
         },
       },
@@ -90,12 +89,11 @@ export async function POST(
 
     const { name, color } = result.data;
 
-    // Check if label already exists in this project
     const existingLabel = await prisma.label.findUnique({
       where: {
         name_projectId: {
           name,
-          projectId: params.projectId,
+          projectId,
         },
       },
     });
@@ -111,19 +109,22 @@ export async function POST(
       data: {
         name,
         color,
-        projectId: params.projectId,
+        projectId,
       },
     });
 
-    // Log activity
     await prisma.activityLog.create({
       data: {
         action: "LABEL_ADDED",
         message: `Label "${name}" was created`,
-        projectId: params.projectId,
+        projectId,
         userId: session.user.id,
       },
     });
+
+    revalidatePath(`/projects/${projectId}`);
+    revalidatePath(`/projects/${projectId}/tasks`);
+    revalidatePath(`/projects/${projectId}/settings`);
 
     return NextResponse.json(label, { status: 201 });
   } catch (error) {
@@ -135,10 +136,9 @@ export async function POST(
   }
 }
 
-// PATCH /api/projects/[projectId]/labels - Update a label
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { projectId: string } }
+  { params }: { params: Params }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -146,11 +146,12 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if user is owner or maintainer
+    const { projectId } = await params;
+
     const member = await prisma.projectMember.findUnique({
       where: {
         projectId_userId: {
-          projectId: params.projectId,
+          projectId,
           userId: session.user.id,
         },
       },
@@ -176,6 +177,10 @@ export async function PATCH(
       data: result.data,
     });
 
+    revalidatePath(`/projects/${projectId}`);
+    revalidatePath(`/projects/${projectId}/tasks`);
+    revalidatePath(`/projects/${projectId}/settings`);
+
     return NextResponse.json(label);
   } catch (error) {
     console.error("[LABELS_PATCH]", error);
@@ -186,10 +191,9 @@ export async function PATCH(
   }
 }
 
-// DELETE /api/projects/[projectId]/labels - Delete a label
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { projectId: string } }
+  { params }: { params: Params }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -197,11 +201,12 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if user is owner or maintainer
+    const { projectId } = await params;
+
     const member = await prisma.projectMember.findUnique({
       where: {
         projectId_userId: {
-          projectId: params.projectId,
+          projectId,
           userId: session.user.id,
         },
       },
@@ -224,6 +229,10 @@ export async function DELETE(
     await prisma.label.delete({
       where: { id: labelId },
     });
+
+    revalidatePath(`/projects/${projectId}`);
+    revalidatePath(`/projects/${projectId}/tasks`);
+    revalidatePath(`/projects/${projectId}/settings`);
 
     return NextResponse.json({ message: "Label deleted successfully" });
   } catch (error) {

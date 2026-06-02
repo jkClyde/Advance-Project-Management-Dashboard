@@ -4,11 +4,13 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { inviteMemberSchema, updateMemberSchema } from "@/lib/validations/project";
 import { NotificationType } from "@prisma/client";
+import { revalidatePath } from "next/cache";
 
-// GET /api/projects/[projectId]/members - Get all members
+type Params = Promise<{ projectId: string }>;
+
 export async function GET(
   req: NextRequest,
-  { params }: { params: { projectId: string } }
+  { params }: { params: Params }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -16,11 +18,12 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if user is a member of the project
+    const { projectId } = await params;
+
     const isMember = await prisma.projectMember.findUnique({
       where: {
         projectId_userId: {
-          projectId: params.projectId,
+          projectId,
           userId: session.user.id,
         },
       },
@@ -31,13 +34,9 @@ export async function GET(
     }
 
     const members = await prisma.projectMember.findMany({
-      where: { projectId: params.projectId },
-      include: {
-        user: true,
-      },
-      orderBy: {
-        joinedAt: "asc",
-      },
+      where: { projectId },
+      include: { user: true },
+      orderBy: { joinedAt: "asc" },
     });
 
     return NextResponse.json(members);
@@ -50,10 +49,9 @@ export async function GET(
   }
 }
 
-// POST /api/projects/[projectId]/members - Invite a member
 export async function POST(
   req: NextRequest,
-  { params }: { params: { projectId: string } }
+  { params }: { params: Params }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -61,11 +59,12 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if user is owner or maintainer
+    const { projectId } = await params;
+
     const currentMember = await prisma.projectMember.findUnique({
       where: {
         projectId_userId: {
-          projectId: params.projectId,
+          projectId,
           userId: session.user.id,
         },
       },
@@ -87,7 +86,6 @@ export async function POST(
 
     const { email, role } = result.data;
 
-    // Find user by email
     const userToInvite = await prisma.user.findUnique({
       where: { email },
     });
@@ -99,11 +97,10 @@ export async function POST(
       );
     }
 
-    // Check if already a member
     const existingMember = await prisma.projectMember.findUnique({
       where: {
         projectId_userId: {
-          projectId: params.projectId,
+          projectId,
           userId: userToInvite.id,
         },
       },
@@ -116,25 +113,20 @@ export async function POST(
       );
     }
 
-    // Add member
     const member = await prisma.projectMember.create({
       data: {
-        projectId: params.projectId,
+        projectId,
         userId: userToInvite.id,
         role,
       },
-      include: {
-        user: true,
-      },
+      include: { user: true },
     });
 
-    // Get project name for notification
     const project = await prisma.project.findUnique({
-      where: { id: params.projectId },
+      where: { id: projectId },
       select: { name: true },
     });
 
-    // Create notification for invited user
     await prisma.notification.create({
       data: {
         type: NotificationType.MEMBER_ADDED,
@@ -143,15 +135,17 @@ export async function POST(
       },
     });
 
-    // Log activity
     await prisma.activityLog.create({
       data: {
         action: "MEMBER_ADDED",
         message: `${userToInvite.name} was added to the project`,
-        projectId: params.projectId,
+        projectId,
         userId: session.user.id,
       },
     });
+
+    revalidatePath(`/projects/${projectId}`);
+    revalidatePath(`/projects/${projectId}/members`);
 
     return NextResponse.json(member, { status: 201 });
   } catch (error) {
@@ -163,10 +157,9 @@ export async function POST(
   }
 }
 
-// PATCH /api/projects/[projectId]/members - Update member role
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { projectId: string } }
+  { params }: { params: Params }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -174,11 +167,12 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Only owner can change roles
+    const { projectId } = await params;
+
     const currentMember = await prisma.projectMember.findUnique({
       where: {
         projectId_userId: {
-          projectId: params.projectId,
+          projectId,
           userId: session.user.id,
         },
       },
@@ -202,15 +196,16 @@ export async function PATCH(
     const member = await prisma.projectMember.update({
       where: {
         projectId_userId: {
-          projectId: params.projectId,
+          projectId,
           userId,
         },
       },
       data: result.data,
-      include: {
-        user: true,
-      },
+      include: { user: true },
     });
+
+    revalidatePath(`/projects/${projectId}`);
+    revalidatePath(`/projects/${projectId}/members`);
 
     return NextResponse.json(member);
   } catch (error) {
@@ -222,16 +217,17 @@ export async function PATCH(
   }
 }
 
-// DELETE /api/projects/[projectId]/members - Remove a member
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { projectId: string } }
+  { params }: { params: Params }
 ) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const { projectId } = await params;
 
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("userId");
@@ -243,12 +239,10 @@ export async function DELETE(
       );
     }
 
-    // Only owner or maintainer can remove members
-    // Users can also remove themselves
     const currentMember = await prisma.projectMember.findUnique({
       where: {
         projectId_userId: {
-          projectId: params.projectId,
+          projectId,
           userId: session.user.id,
         },
       },
@@ -262,11 +256,10 @@ export async function DELETE(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Prevent removing the owner
     const memberToRemove = await prisma.projectMember.findUnique({
       where: {
         projectId_userId: {
-          projectId: params.projectId,
+          projectId,
           userId,
         },
       },
@@ -282,21 +275,23 @@ export async function DELETE(
     await prisma.projectMember.delete({
       where: {
         projectId_userId: {
-          projectId: params.projectId,
+          projectId,
           userId,
         },
       },
     });
 
-    // Log activity
     await prisma.activityLog.create({
       data: {
         action: "MEMBER_REMOVED",
         message: `A member was removed from the project`,
-        projectId: params.projectId,
+        projectId,
         userId: session.user.id,
       },
     });
+
+    revalidatePath(`/projects/${projectId}`);
+    revalidatePath(`/projects/${projectId}/members`);
 
     return NextResponse.json({ message: "Member removed successfully" });
   } catch (error) {

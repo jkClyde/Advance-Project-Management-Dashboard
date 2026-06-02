@@ -4,10 +4,10 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { createTaskSchema } from "@/lib/validations/task";
 import { NotificationType } from "@prisma/client";
+import { revalidatePath } from "next/cache";
 
 type Params = Promise<{ projectId: string }>;
 
-// GET /api/projects/[projectId]/tasks
 export async function GET(
   req: NextRequest,
   { params }: { params: Params }
@@ -76,7 +76,6 @@ export async function GET(
   }
 }
 
-// POST /api/projects/[projectId]/tasks
 export async function POST(
   req: NextRequest,
   { params }: { params: Params }
@@ -163,6 +162,11 @@ export async function POST(
         taskId: task.id,
       },
     });
+
+    revalidatePath(`/projects/${projectId}`);
+    revalidatePath(`/projects/${projectId}/tasks`);
+    revalidatePath(`/projects/${projectId}/board`);
+    revalidatePath("/");
 
     return NextResponse.json(task, { status: 201 });
   } catch (error) {

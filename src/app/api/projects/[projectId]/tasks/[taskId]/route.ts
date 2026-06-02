@@ -4,11 +4,13 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { updateTaskSchema } from "@/lib/validations/task";
 import { NotificationType } from "@prisma/client";
+import { revalidatePath } from "next/cache";
 
-// GET /api/projects/[projectId]/tasks/[taskId] - Get a single task
+type Params = Promise<{ projectId: string; taskId: string }>;
+
 export async function GET(
   req: NextRequest,
-  { params }: { params: { projectId: string; taskId: string } }
+  { params }: { params: Params }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -16,11 +18,12 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if user is a member
+    const { projectId, taskId } = await params;
+
     const isMember = await prisma.projectMember.findUnique({
       where: {
         projectId_userId: {
-          projectId: params.projectId,
+          projectId,
           userId: session.user.id,
         },
       },
@@ -31,27 +34,19 @@ export async function GET(
     }
 
     const task = await prisma.task.findUnique({
-      where: { id: params.taskId },
+      where: { id: taskId },
       include: {
         assignee: true,
         creator: true,
         labels: {
-          include: {
-            label: true,
-          },
+          include: { label: true },
         },
         comments: {
-          include: {
-            author: true,
-          },
-          orderBy: {
-            createdAt: "asc",
-          },
+          include: { author: true },
+          orderBy: { createdAt: "asc" },
         },
         _count: {
-          select: {
-            comments: true,
-          },
+          select: { comments: true },
         },
       },
     });
@@ -70,10 +65,9 @@ export async function GET(
   }
 }
 
-// PATCH /api/projects/[projectId]/tasks/[taskId] - Update a task
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { projectId: string; taskId: string } }
+  { params }: { params: Params }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -81,11 +75,12 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if user is a member
+    const { projectId, taskId } = await params;
+
     const isMember = await prisma.projectMember.findUnique({
       where: {
         projectId_userId: {
-          projectId: params.projectId,
+          projectId,
           userId: session.user.id,
         },
       },
@@ -107,9 +102,8 @@ export async function PATCH(
 
     const { labelIds, dueDate, ...rest } = result.data;
 
-    // Get existing task to compare changes
     const existingTask = await prisma.task.findUnique({
-      where: { id: params.taskId },
+      where: { id: taskId },
       select: {
         status: true,
         assigneeId: true,
@@ -121,12 +115,17 @@ export async function PATCH(
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
+    const cleanAssigneeId =
+      !rest.assigneeId || rest.assigneeId === "unassigned"
+        ? undefined
+        : rest.assigneeId;
+
     const task = await prisma.task.update({
-      where: { id: params.taskId },
+      where: { id: taskId },
       data: {
         ...rest,
+        assigneeId: cleanAssigneeId,
         ...(dueDate && { dueDate: new Date(dueDate) }),
-        // Update labels if provided
         ...(labelIds && {
           labels: {
             deleteMany: {},
@@ -138,46 +137,39 @@ export async function PATCH(
         assignee: true,
         creator: true,
         labels: {
-          include: {
-            label: true,
-          },
+          include: { label: true },
         },
         _count: {
-          select: {
-            comments: true,
-          },
+          select: { comments: true },
         },
       },
     });
 
-    // Notify new assignee if assignee changed
     if (
-      rest.assigneeId &&
-      rest.assigneeId !== existingTask.assigneeId &&
-      rest.assigneeId !== session.user.id
+      cleanAssigneeId &&
+      cleanAssigneeId !== existingTask.assigneeId &&
+      cleanAssigneeId !== session.user.id
     ) {
       await prisma.notification.create({
         data: {
           type: NotificationType.TASK_ASSIGNED,
           message: `You have been assigned to task "${existingTask.title}"`,
-          userId: rest.assigneeId,
+          userId: cleanAssigneeId,
         },
       });
     }
 
-    // Log status change activity
     if (rest.status && rest.status !== existingTask.status) {
       await prisma.activityLog.create({
         data: {
           action: "STATUS_CHANGED",
           message: `Task "${existingTask.title}" status changed to ${rest.status}`,
-          projectId: params.projectId,
+          projectId,
           userId: session.user.id,
-          taskId: params.taskId,
+          taskId,
         },
       });
 
-      // Notify assignee of status change
       if (
         existingTask.assigneeId &&
         existingTask.assigneeId !== session.user.id
@@ -191,17 +183,23 @@ export async function PATCH(
         });
       }
     } else {
-      // Log general update
       await prisma.activityLog.create({
         data: {
           action: "TASK_UPDATED",
           message: `Task "${existingTask.title}" was updated`,
-          projectId: params.projectId,
+          projectId,
           userId: session.user.id,
-          taskId: params.taskId,
+          taskId,
         },
       });
     }
+
+    revalidatePath(`/projects/${projectId}`);
+    revalidatePath(`/projects/${projectId}/tasks`);
+    revalidatePath(`/projects/${projectId}/tasks/${taskId}`);
+    revalidatePath(`/projects/${projectId}/board`);
+    revalidatePath(`/projects/${projectId}/activity`);
+    revalidatePath("/");
 
     return NextResponse.json(task);
   } catch (error) {
@@ -213,10 +211,9 @@ export async function PATCH(
   }
 }
 
-// DELETE /api/projects/[projectId]/tasks/[taskId] - Delete a task
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { projectId: string; taskId: string } }
+  { params }: { params: Params }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -224,18 +221,19 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if user is owner, maintainer or task creator
+    const { projectId, taskId } = await params;
+
     const [member, task] = await Promise.all([
       prisma.projectMember.findUnique({
         where: {
           projectId_userId: {
-            projectId: params.projectId,
+            projectId,
             userId: session.user.id,
           },
         },
       }),
       prisma.task.findUnique({
-        where: { id: params.taskId },
+        where: { id: taskId },
         select: { creatorId: true, title: true },
       }),
     ]);
@@ -253,18 +251,23 @@ export async function DELETE(
     }
 
     await prisma.task.delete({
-      where: { id: params.taskId },
+      where: { id: taskId },
     });
 
-    // Log activity
     await prisma.activityLog.create({
       data: {
         action: "TASK_UPDATED",
         message: `Task "${task.title}" was deleted`,
-        projectId: params.projectId,
+        projectId,
         userId: session.user.id,
       },
     });
+
+    revalidatePath(`/projects/${projectId}`);
+    revalidatePath(`/projects/${projectId}/tasks`);
+    revalidatePath(`/projects/${projectId}/board`);
+    revalidatePath(`/projects/${projectId}/activity`);
+    revalidatePath("/");
 
     return NextResponse.json({ message: "Task deleted successfully" });
   } catch (error) {

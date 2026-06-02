@@ -4,8 +4,8 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { createProjectSchema } from "@/lib/validations/project";
 import { MemberRole } from "@prisma/client";
+import { revalidatePath } from "next/cache";
 
-// GET /api/projects - Get all projects for the current user
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -16,16 +16,12 @@ export async function GET(req: NextRequest) {
     const projects = await prisma.project.findMany({
       where: {
         members: {
-          some: {
-            userId: session.user.id,
-          },
+          some: { userId: session.user.id },
         },
       },
       include: {
         members: {
-          include: {
-            user: true,
-          },
+          include: { user: true },
         },
         _count: {
           select: {
@@ -34,9 +30,7 @@ export async function GET(req: NextRequest) {
           },
         },
       },
-      orderBy: {
-        updatedAt: "desc",
-      },
+      orderBy: { updatedAt: "desc" },
     });
 
     return NextResponse.json(projects);
@@ -49,7 +43,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST /api/projects - Create a new project
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -84,14 +77,11 @@ export async function POST(req: NextRequest) {
       },
       include: {
         members: {
-          include: {
-            user: true,
-          },
+          include: { user: true },
         },
       },
     });
 
-    // Log activity
     await prisma.activityLog.create({
       data: {
         action: "TASK_CREATED",
@@ -100,6 +90,9 @@ export async function POST(req: NextRequest) {
         userId: session.user.id,
       },
     });
+
+    revalidatePath("/projects");
+    revalidatePath("/");
 
     return NextResponse.json(project, { status: 201 });
   } catch (error) {
