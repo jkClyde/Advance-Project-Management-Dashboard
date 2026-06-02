@@ -5,21 +5,20 @@ import prisma from "@/lib/prisma";
 import { createTaskSchema } from "@/lib/validations/task";
 import { NotificationType } from "@prisma/client";
 
-/**
- * GET /api/projects/[projectId]/tasks
- */
+type Params = Promise<{ projectId: string }>;
+
+// GET /api/projects/[projectId]/tasks
 export async function GET(
   req: NextRequest,
-  context: { params: { projectId: string } }
+  { params }: { params: Params }
 ) {
   try {
     const session = await getServerSession(authOptions);
-
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const projectId = context.params.projectId;
+    const { projectId } = await params;
 
     const isMember = await prisma.projectMember.findUnique({
       where: {
@@ -51,17 +50,18 @@ export async function GET(
           labels: { some: { labelId } },
         }),
         ...(search && {
-          title: {
-            contains: search,
-            mode: "insensitive",
-          },
+          title: { contains: search, mode: "insensitive" },
         }),
       },
       include: {
         assignee: true,
         creator: true,
-        labels: { include: { label: true } },
-        _count: { select: { comments: true } },
+        labels: {
+          include: { label: true },
+        },
+        _count: {
+          select: { comments: true },
+        },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -76,21 +76,18 @@ export async function GET(
   }
 }
 
-/**
- * POST /api/projects/[projectId]/tasks
- */
+// POST /api/projects/[projectId]/tasks
 export async function POST(
   req: NextRequest,
-  context: { params: { projectId: string } }
+  { params }: { params: Params }
 ) {
   try {
     const session = await getServerSession(authOptions);
-
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const projectId = context.params.projectId;
+    const { projectId } = await params;
 
     const isMember = await prisma.projectMember.findUnique({
       where: {
@@ -115,20 +112,11 @@ export async function POST(
       );
     }
 
-    const {
-      title,
-      description,
-      status,
-      priority,
-      assigneeId,
-      dueDate,
-      labelIds,
-    } = result.data;
+    const { title, description, status, priority, assigneeId, dueDate, labelIds } =
+      result.data;
 
     const cleanAssigneeId =
-      !assigneeId || assigneeId === "unassigned"
-        ? undefined
-        : assigneeId;
+      !assigneeId || assigneeId === "unassigned" ? undefined : assigneeId;
 
     const task = await prisma.task.create({
       data: {
@@ -140,29 +128,28 @@ export async function POST(
         dueDate: dueDate ? new Date(dueDate) : null,
         projectId,
         creatorId: session.user.id,
-        ...(labelIds?.length
-          ? {
-              labels: {
-                create: labelIds.map((labelId) => ({
-                  labelId,
-                })),
-              },
-            }
-          : {}),
+        ...(labelIds &&
+          labelIds.length > 0 && {
+            labels: {
+              create: labelIds.map((labelId) => ({ labelId })),
+            },
+          }),
       },
       include: {
         assignee: true,
         creator: true,
-        labels: { include: { label: true } },
+        labels: {
+          include: { label: true },
+        },
       },
     });
 
-    if (assigneeId && assigneeId !== session.user.id) {
+    if (cleanAssigneeId && cleanAssigneeId !== session.user.id) {
       await prisma.notification.create({
         data: {
           type: NotificationType.TASK_ASSIGNED,
           message: `You have been assigned to task "${title}"`,
-          userId: assigneeId,
+          userId: cleanAssigneeId,
         },
       });
     }
