@@ -1,3 +1,4 @@
+
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect, notFound } from "next/navigation";
@@ -6,6 +7,7 @@ import { getTasksByProject, getTaskStatsByProject } from "@/lib/data/tasks";
 import type { TaskWithAssignee, TaskStat } from "@/types/task";
 import type { Label } from "@prisma/client";
 import Link from "next/link";
+import TasksTable from "@/components/features/tasks/TasksTable";
 
 import {
   ListTodo,
@@ -13,24 +15,12 @@ import {
   Clock,
   CheckCircle2,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
-import { formatDistanceToNow } from "date-fns";
 import CreateTaskButton from "@/components/features/tasks/CreateTaskButton";
 
 export default async function TasksPage({
@@ -171,91 +161,10 @@ export default async function TasksPage({
           />
         </div>
       ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">All Tasks</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Priority</TableHead>
-                  <TableHead>Assignee</TableHead>
-                  <TableHead>Labels</TableHead>
-                  <TableHead>Due Date</TableHead>
-                  <TableHead>Comments</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(tasks as TaskWithAssignee[]).map((task) => (
-                  <TableRow
-                    key={task.id}
-                    className="cursor-pointer hover:bg-accent"
-                  >
-                    <TableCell>
-                      <Link
-                        href={`/projects/${projectId}/tasks/${task.id}`}
-                        className="font-medium hover:underline"
-                      >
-                        {task.title}
-                      </Link>
-                    </TableCell>
-                    <TableCell>{getStatusBadge(task.status)}</TableCell>
-                    <TableCell>{getPriorityBadge(task.priority)}</TableCell>
-                    <TableCell>
-                      {task.assignee ? (
-                        <div className="flex items-center gap-2">
-                          <Avatar className="h-6 w-6">
-                            <AvatarImage src={task.assignee.image ?? ""} />
-                            <AvatarFallback className="text-xs">
-                              {task.assignee.name?.charAt(0) ?? "U"}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="text-sm">{task.assignee.name}</span>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground text-sm">
-                          Unassigned
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1 flex-wrap">
-                        {task.labels.map(({ label }: { label: Label }) => (
-                          <span
-                            key={label.id}
-                            className="text-xs px-1.5 py-0.5 rounded-full text-white"
-                            style={{ backgroundColor: label.color }}
-                          >
-                            {label.name}
-                          </span>
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {task.dueDate ? (
-                        <span className="text-sm text-muted-foreground">
-                          {formatDistanceToNow(new Date(task.dueDate), {
-                            addSuffix: true,
-                          })}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground text-sm">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-sm text-muted-foreground">
-                        {task._count.comments}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+        <TasksTable
+          tasks={tasks as TaskWithAssignee[]}
+          projectId={projectId}
+        />
       )}
     </div>
   );

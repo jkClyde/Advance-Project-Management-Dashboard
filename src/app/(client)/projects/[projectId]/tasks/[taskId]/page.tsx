@@ -95,7 +95,7 @@ export default async function TaskPage({
   };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-6 mx-auto space-y-6">
       {/* Back Button */}
       <Button variant="ghost" size="sm" asChild className="-ml-2">
         <Link href={`/projects/${projectId}/tasks`}>

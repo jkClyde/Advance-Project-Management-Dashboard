@@ -13,6 +13,7 @@ import {
 } from "./ui/dropdown-menu";
 import UserMenu from "@/components/UserMenu";
 import { usePathname } from "next/navigation";
+import ThemeSwitcher from "@/components/shared/ThemeSwitcher"; // ✅ add this
 
 const Navbar = () => {
   const { setTheme } = useTheme();
@@ -48,7 +49,10 @@ const Navbar = () => {
           </Link>
         </Button>
 
-        {/* Theme Toggle */}
+        {/* Color Theme Switcher */}
+        <ThemeSwitcher /> {/* ✅ add this */}
+
+        {/* Dark/Light Toggle */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon">
