@@ -33,19 +33,20 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Loader2, FolderKanban, Lock, Globe, ArrowLeft } from "lucide-react";
+import { Visibility } from "@prisma/client";
 
 export default function NewProjectPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
 
-  const form = useForm<CreateProjectInput>({
-    resolver: zodResolver(createProjectSchema),
-    defaultValues: {
-      name: "",
-      description: "",
-      visibility: "PRIVATE",
-    },
-  });
+const form = useForm({
+  resolver: zodResolver(createProjectSchema),
+  defaultValues: {
+    name: "",
+    description: "",
+    visibility: Visibility.PRIVATE,
+  },
+});
 
   const onSubmit = async (data: CreateProjectInput) => {
     setIsLoading(true);
