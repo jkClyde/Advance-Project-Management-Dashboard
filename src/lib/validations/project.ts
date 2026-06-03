@@ -13,7 +13,11 @@ export const createProjectSchema = z.object({
   visibility: z.nativeEnum(Visibility).default(Visibility.PRIVATE),
 });
 
-export const updateProjectSchema = createProjectSchema.partial();
+export const updateProjectSchema = z.object({
+  name: z.string().min(1).max(100),
+  description: z.string().max(500).optional(),
+  visibility: z.nativeEnum(Visibility),
+});
 
 export const inviteMemberSchema = z.object({
   email: z.string().email("Invalid email address"),
