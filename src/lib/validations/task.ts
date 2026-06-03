@@ -17,7 +17,15 @@ export const createTaskSchema = z.object({
   labelIds: z.array(z.string()).optional(),
 });
 
-export const updateTaskSchema = createTaskSchema.partial();
+export const updateTaskSchema = z.object({
+  title: z.string().min(1, "Task title is required").max(200),
+  description: z.string().max(2000).optional(),
+  status: z.nativeEnum(TaskStatus),
+  priority: z.nativeEnum(Priority),
+  assigneeId: z.string().optional(),
+  dueDate: z.string().optional(),
+  labelIds: z.array(z.string()).optional(),
+});
 
 export const createCommentSchema = z.object({
   content: z
@@ -26,7 +34,9 @@ export const createCommentSchema = z.object({
     .max(1000, "Comment must be less than 1000 characters"),
 });
 
-export const updateCommentSchema = createCommentSchema.partial();
+export const updateCommentSchema = z.object({
+  content: z.string().min(1).max(1000),
+});
 
 export const createLabelSchema = z.object({
   name: z
@@ -35,11 +45,15 @@ export const createLabelSchema = z.object({
     .max(50, "Label name must be less than 50 characters"),
   color: z
     .string()
-    .regex(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/, "Invalid color format")
-    .default("#6366f1"),
+    .regex(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/),
 });
 
-export const updateLabelSchema = createLabelSchema.partial();
+export const updateLabelSchema = z.object({
+  name: z.string().min(1).max(50),
+  color: z
+    .string()
+    .regex(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/, "Invalid color format"),
+});
 
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
