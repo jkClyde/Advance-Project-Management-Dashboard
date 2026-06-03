@@ -61,12 +61,12 @@ export default async function DashboardPage() {
   return (
     <div className="py-6 space-y-6  md:p-6 space-y-6 ">
       {/* Welcome Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-col sm:flex-row gap-[15px]">
         <div>
           <h1 className="text-2xl font-bold">
             Welcome back, {session.user.name?.split(" ")[0]} 👋
           </h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="text-muted-foreground mt-1 text-center">
             Here's what's happening across your projects.
           </p>
         </div>
