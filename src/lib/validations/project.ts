@@ -21,8 +21,7 @@ export const updateProjectSchema = z.object({
 
 export const inviteMemberSchema = z.object({
   email: z.string().email("Invalid email address"),
-  role: z.enum(["OWNER", "MAINTAINER", "CONTRIBUTOR"]).default("CONTRIBUTOR"),
-});
+role: z.enum(["OWNER", "MAINTAINER", "CONTRIBUTOR"]),});
 
 export const updateMemberSchema = z.object({
   role: z.enum(["OWNER", "MAINTAINER", "CONTRIBUTOR"]),
