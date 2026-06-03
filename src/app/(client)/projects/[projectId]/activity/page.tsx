@@ -100,7 +100,7 @@ export default async function ActivityPage({
   );
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="py-6 space-y-6  md:p-6 space-y-6 ">
       {/* Header */}
       <div>
         <h2 className="text-xl font-bold">Activity</h2>
