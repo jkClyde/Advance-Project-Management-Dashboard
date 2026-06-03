@@ -91,6 +91,7 @@ export const getTasksByProject = unstable_cache(
                 id: true,
                 name: true,
                 color: true,
+                
               },
             },
           },
