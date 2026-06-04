@@ -55,8 +55,8 @@ export default async function ProfilePage() {
   return (
     <div className="py-6 space-y-6  md:p-6 space-y-6 ">
       <div>
-        <h1 className="text-2xl font-bold">Profile</h1>
-        <p className="text-muted-foreground mt-1">
+        <h1 className="text-2xl font-bold text-center md:text-left">Profile</h1>
+        <p className="text-muted-foreground mt-1 text-center md:text-left">
           Manage your account settings
         </p>
       </div>

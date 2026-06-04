@@ -45,9 +45,9 @@ export default async function NotificationsPage() {
 
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Notifications</h1>
-          <p className="text-muted-foreground mt-1">
+        <div className="w-full">
+          <h1 className="text-2xl font-bold text-center md:text-left">Notifications</h1>
+          <p className="text-muted-foreground mt-1 text-center md:text-left">
             {unreadCount > 0
               ? `${unreadCount} unread notification${unreadCount !== 1 ? "s" : ""}`
               : "All caught up!"}

@@ -38,9 +38,9 @@ export default async function ProjectsPage() {
   return (
     <div className="py-6 space-y-6  md:p-6 space-y-6 ">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-col md:flex-row gap-[15px]">
         <div>
-          <h1 className="text-2xl font-bold">Projects</h1>
+          <h1 className="text-2xl font-bold text-center md:text-left">Projects</h1>
           <p className="text-muted-foreground mt-1">
             {projects.length} project{projects.length !== 1 ? "s" : ""} you
             are a member of
