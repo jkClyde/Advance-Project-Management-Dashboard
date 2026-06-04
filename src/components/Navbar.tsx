@@ -13,11 +13,14 @@ import {
 } from "./ui/dropdown-menu";
 import UserMenu from "@/components/UserMenu";
 import { usePathname } from "next/navigation";
-import ThemeSwitcher from "@/components/shared/ThemeSwitcher"; // ✅ add this
+import ThemeSwitcher from "@/components/shared/ThemeSwitcher";
+import { useUnreadNotifications } from "@/hooks/use-notifications";
+import { cn } from "@/lib/utils";
 
 const Navbar = () => {
   const { setTheme } = useTheme();
   const pathname = usePathname();
+  const { unreadCount } = useUnreadNotifications();
 
   const getPageTitle = () => {
     if (pathname === "/") return "Dashboard";
@@ -41,16 +44,26 @@ const Navbar = () => {
       </div>
 
       <div className="flex items-center gap-2">
-        {/* Notifications Bell */}
-        <Button variant="ghost" size="icon" asChild>
+        {/* Notifications Bell with badge */}
+        <Button variant="ghost" size="icon" className="relative" asChild>
           <Link href="/notifications">
             <Bell className="h-[1.2rem] w-[1.2rem]" />
+            {unreadCount > 0 && (
+              <span className={cn(
+                "absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 rounded-full",
+                "bg-destructive text-destructive-foreground",
+                "text-[10px] font-bold flex items-center justify-center",
+                "animate-pulse"
+              )}>
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
             <span className="sr-only">Notifications</span>
           </Link>
         </Button>
 
         {/* Color Theme Switcher */}
-        <ThemeSwitcher /> {/* ✅ add this */}
+        <ThemeSwitcher />
 
         {/* Dark/Light Toggle */}
         <DropdownMenu>

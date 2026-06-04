@@ -6,7 +6,6 @@ import {
   Bell,
   Settings,
   Plus,
-  ChevronDown,
   User,
   LayoutDashboard,
 } from "lucide-react";
@@ -20,6 +19,7 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarSeparator,
@@ -28,32 +28,35 @@ import Link from "next/link";
 import UserMenu from "@/components/UserMenu";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-
-const mainItems = [
-  {
-    title: "Dashboard",
-    url: "/",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "Projects",
-    url: "/projects",
-    icon: FolderKanban,
-  },
-  {
-    title: "Notifications",
-    url: "/notifications",
-    icon: Bell,
-  },
-  {
-    title: "Profile",
-    url: "/profile",
-    icon: User,
-  },
-];
+import { useUnreadNotifications } from "@/hooks/use-notifications";
 
 const AppSidebar = () => {
   const pathname = usePathname();
+  const { unreadCount } = useUnreadNotifications();
+
+  const mainItems = [
+    {
+      title: "Dashboard",
+      url: "/",
+      icon: LayoutDashboard,
+    },
+    {
+      title: "Projects",
+      url: "/projects",
+      icon: FolderKanban,
+    },
+    {
+      title: "Notifications",
+      url: "/notifications",
+      icon: Bell,
+      badge: unreadCount,
+    },
+    {
+      title: "Profile",
+      url: "/profile",
+      icon: User,
+    },
+  ];
 
   return (
     <Sidebar collapsible="icon">
@@ -83,7 +86,8 @@ const AppSidebar = () => {
                   <SidebarMenuButton
                     asChild
                     className={cn(
-                      pathname === item.url && "bg-accent text-accent-foreground"
+                      pathname === item.url &&
+                        "bg-accent text-accent-foreground"
                     )}
                   >
                     <Link href={item.url}>
@@ -91,6 +95,11 @@ const AppSidebar = () => {
                       <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
+                  {item.badge && item.badge > 0 && (
+                    <SidebarMenuBadge>
+                      {item.badge > 99 ? "99+" : item.badge}
+                    </SidebarMenuBadge>
+                  )}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>

@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
     });
 
     // Get unread count
+    // This should already be in your route but verify:
     const unreadCount = await prisma.notification.count({
       where: {
         userId: session.user.id,
