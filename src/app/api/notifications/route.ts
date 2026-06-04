@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { revalidatePath, revalidateTag } from "next/cache";
 
-// GET /api/notifications - Get all notifications for current user
+// GET /api/notifications
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -19,13 +20,9 @@ export async function GET(req: NextRequest) {
         userId: session.user.id,
         ...(unreadOnly && { read: false }),
       },
-      orderBy: {
-        createdAt: "desc",
-      },
+      orderBy: { createdAt: "desc" },
     });
 
-    // Get unread count
-    // This should already be in your route but verify:
     const unreadCount = await prisma.notification.count({
       where: {
         userId: session.user.id,
@@ -43,7 +40,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// PATCH /api/notifications - Mark notifications as read
+// PATCH /api/notifications - Mark as read
 export async function PATCH(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -55,7 +52,6 @@ export async function PATCH(req: NextRequest) {
     const { notificationId, markAllRead } = body;
 
     if (markAllRead) {
-      // Mark all notifications as read
       await prisma.notification.updateMany({
         where: {
           userId: session.user.id,
@@ -63,6 +59,10 @@ export async function PATCH(req: NextRequest) {
         },
         data: { read: true },
       });
+
+      revalidateTag(`notifications-${session.user.id}`);
+      revalidateTag(`unread-notifications-${session.user.id}`);
+      revalidatePath("/notifications");
 
       return NextResponse.json({
         message: "All notifications marked as read",
@@ -76,7 +76,6 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    // Mark single notification as read
     const notification = await prisma.notification.update({
       where: {
         id: notificationId,
@@ -84,6 +83,10 @@ export async function PATCH(req: NextRequest) {
       },
       data: { read: true },
     });
+
+    revalidateTag(`notifications-${session.user.id}`);
+    revalidateTag(`unread-notifications-${session.user.id}`);
+    revalidatePath("/notifications");
 
     return NextResponse.json(notification);
   } catch (error) {
@@ -95,7 +98,7 @@ export async function PATCH(req: NextRequest) {
   }
 }
 
-// DELETE /api/notifications - Delete notifications
+// DELETE /api/notifications
 export async function DELETE(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -112,9 +115,11 @@ export async function DELETE(req: NextRequest) {
         where: { userId: session.user.id },
       });
 
-      return NextResponse.json({
-        message: "All notifications deleted",
-      });
+      revalidateTag(`notifications-${session.user.id}`);
+      revalidateTag(`unread-notifications-${session.user.id}`);
+      revalidatePath("/notifications");
+
+      return NextResponse.json({ message: "All notifications deleted" });
     }
 
     if (!notificationId) {
@@ -130,6 +135,10 @@ export async function DELETE(req: NextRequest) {
         userId: session.user.id,
       },
     });
+
+    revalidateTag(`notifications-${session.user.id}`);
+    revalidateTag(`unread-notifications-${session.user.id}`);
+    revalidatePath("/notifications");
 
     return NextResponse.json({ message: "Notification deleted successfully" });
   } catch (error) {

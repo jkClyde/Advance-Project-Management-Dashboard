@@ -4,7 +4,6 @@ import {
   Home,
   FolderKanban,
   Bell,
-  Settings,
   Plus,
   User,
   LayoutDashboard,
@@ -23,6 +22,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarSeparator,
+  useSidebar,
 } from "./ui/sidebar";
 import Link from "next/link";
 import UserMenu from "@/components/UserMenu";
@@ -33,6 +33,11 @@ import { useUnreadNotifications } from "@/hooks/use-notifications";
 const AppSidebar = () => {
   const pathname = usePathname();
   const { unreadCount } = useUnreadNotifications();
+  const { isMobile, setOpenMobile } = useSidebar();
+
+  const handleNavClick = () => {
+    if (isMobile) setOpenMobile(false);
+  };
 
   const mainItems = [
     {
@@ -64,7 +69,11 @@ const AppSidebar = () => {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <Link href="/" className="flex items-center gap-2">
+              <Link
+                href="/"
+                className="flex items-center gap-2"
+                onClick={handleNavClick}
+              >
                 <Home className="h-5 w-5" />
                 <span className="font-semibold">ProjectHub</span>
               </Link>
@@ -76,7 +85,6 @@ const AppSidebar = () => {
       <SidebarSeparator />
 
       <SidebarContent>
-        {/* Main Navigation */}
         <SidebarGroup>
           <SidebarGroupLabel>Main</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -90,16 +98,16 @@ const AppSidebar = () => {
                         "bg-accent text-accent-foreground"
                     )}
                   >
-                    <Link href={item.url}>
+                    <Link href={item.url} onClick={handleNavClick}>
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
-                  {item.badge && item.badge > 0 && (
+                  {/* {item.badge && item.badge > 0 && (
                     <SidebarMenuBadge>
                       {item.badge > 99 ? "99+" : item.badge}
                     </SidebarMenuBadge>
-                  )}
+                  )} */}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
@@ -108,11 +116,10 @@ const AppSidebar = () => {
 
         <SidebarSeparator />
 
-        {/* Projects Quick Access */}
         <SidebarGroup>
           <SidebarGroupLabel>Projects</SidebarGroupLabel>
           <SidebarGroupAction asChild>
-            <Link href="/projects/new">
+            <Link href="/projects/new" onClick={handleNavClick}>
               <Plus className="h-4 w-4" />
               <span className="sr-only">New Project</span>
             </Link>
@@ -121,7 +128,7 @@ const AppSidebar = () => {
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
-                  <Link href="/projects">
+                  <Link href="/projects" onClick={handleNavClick}>
                     <FolderKanban className="h-4 w-4" />
                     <span>All Projects</span>
                   </Link>
@@ -129,7 +136,7 @@ const AppSidebar = () => {
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
-                  <Link href="/projects/new">
+                  <Link href="/projects/new" onClick={handleNavClick}>
                     <Plus className="h-4 w-4" />
                     <span>New Project</span>
                   </Link>

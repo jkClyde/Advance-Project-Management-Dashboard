@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getNotificationsByUserId } from "@/lib/data/notifications";
+import prisma from "@/lib/prisma";
 import { Bell, CheckCheck } from "lucide-react";
 import {
   Card,
@@ -10,7 +11,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { formatDistanceToNow } from "date-fns";
 import MarkAllReadButton from "@/components/features/notifications/MarkAllReadButton";
 import NotificationItem from "@/components/features/notifications/NotificationItem";
 
@@ -19,12 +19,30 @@ export default async function NotificationsPage() {
   if (!session?.user?.id) redirect("/login");
 
   const userId = session.user.id;
+
   const notifications = await getNotificationsByUserId(userId);
+
+  // ✅ Fetch invite statuses for all invite notifications
+  const inviteIds = notifications
+    .filter((n) => n.inviteId)
+    .map((n) => n.inviteId as string);
+
+  const invites = inviteIds.length > 0
+    ? await prisma.projectInvite.findMany({
+      where: { id: { in: inviteIds } },
+      select: { id: true, status: true },
+    })
+    : [];
+
+  const inviteStatusMap = Object.fromEntries(
+    invites.map((i) => [i.id, i.status])
+  );
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   return (
-    <div className="p-6  space-y-6">
+    <div className="py-6 space-y-6  md:p-6 space-y-6 ">
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -65,6 +83,12 @@ export default async function NotificationsPage() {
                 <NotificationItem
                   key={notification.id}
                   notification={notification}
+                  // ✅ Pass invite status so component knows if already responded
+                  inviteStatus={
+                    notification.inviteId
+                      ? inviteStatusMap[notification.inviteId]
+                      : undefined
+                  }
                 />
               ))}
             </div>

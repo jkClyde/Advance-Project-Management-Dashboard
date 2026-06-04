@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { NotificationType } from "@prisma/client";
 
 type Params = Promise<{ inviteId: string }>;
@@ -74,6 +74,7 @@ export async function PATCH(
         }),
       ]);
 
+      // Notify sender
       await prisma.notification.create({
         data: {
           type: NotificationType.MEMBER_ADDED,
@@ -82,9 +83,18 @@ export async function PATCH(
         },
       });
 
+      // Revalidate receiver's notifications
+      revalidateTag(`notifications-${session.user.id}`);
+      revalidateTag(`unread-notifications-${session.user.id}`);
+
+      // Revalidate sender's notifications
+      revalidateTag(`notifications-${invite.senderId}`);
+      revalidateTag(`unread-notifications-${invite.senderId}`);
+
       revalidatePath(`/projects/${invite.projectId}`);
       revalidatePath(`/projects/${invite.projectId}/members`);
       revalidatePath("/projects");
+      revalidatePath("/notifications");
       revalidatePath("/");
 
       return NextResponse.json({ message: "Invite accepted successfully" });
@@ -94,6 +104,7 @@ export async function PATCH(
         data: { status: "DECLINED" },
       });
 
+      // Notify sender
       await prisma.notification.create({
         data: {
           type: NotificationType.MEMBER_ADDED,
@@ -101,6 +112,16 @@ export async function PATCH(
           userId: invite.senderId,
         },
       });
+
+      // Revalidate receiver's notifications
+      revalidateTag(`notifications-${session.user.id}`);
+      revalidateTag(`unread-notifications-${session.user.id}`);
+
+      // Revalidate sender's notifications
+      revalidateTag(`notifications-${invite.senderId}`);
+      revalidateTag(`unread-notifications-${invite.senderId}`);
+
+      revalidatePath("/notifications");
 
       return NextResponse.json({ message: "Invite declined" });
     }

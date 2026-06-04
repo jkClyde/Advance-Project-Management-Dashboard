@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
-import { Trash2, Check, X } from "lucide-react";
+import { Trash2, Check, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   BellRing,
@@ -27,14 +26,15 @@ interface Notification {
 
 interface NotificationItemProps {
   notification: Notification;
+  inviteStatus?: string; // ✅ new prop
 }
 
 export default function NotificationItem({
   notification,
+  inviteStatus,
 }: NotificationItemProps) {
-  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [responded, setResponded] = useState(false);
+  const [deleted, setDeleted] = useState(false);
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -61,7 +61,7 @@ export default function NotificationItem({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ notificationId: notification.id }),
       });
-      router.refresh();
+      window.location.reload();
     } catch {
       toast.error("Failed to mark as read");
     }
@@ -74,8 +74,9 @@ export default function NotificationItem({
         `/api/notifications?notificationId=${notification.id}`,
         { method: "DELETE" }
       );
+      setDeleted(true);
       toast.success("Notification deleted");
-      router.refresh();
+      window.location.reload();
     } catch {
       toast.error("Failed to delete notification");
     } finally {
@@ -102,20 +103,19 @@ export default function NotificationItem({
         return;
       }
 
-      // Mark notification as read
-      await fetch("/api/notifications", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notificationId: notification.id }),
-      });
+      // Delete the notification after responding
+      await fetch(
+        `/api/notifications?notificationId=${notification.id}`,
+        { method: "DELETE" }
+      );
 
-      setResponded(true);
       toast.success(
         action === "accept"
           ? "You joined the project!"
           : "Invite declined"
       );
-      router.refresh();
+
+      window.location.reload();
     } catch {
       toast.error("Something went wrong");
     } finally {
@@ -123,7 +123,21 @@ export default function NotificationItem({
     }
   };
 
+  if (deleted) return null;
+
   const isInvite = notification.type === "PROJECT_INVITE";
+
+  // ✅ Only show buttons if invite is still PENDING
+  const showInviteButtons =
+    isInvite &&
+    notification.inviteId &&
+    inviteStatus === "PENDING";
+
+  // ✅ Show responded message if already accepted or declined
+  const alreadyResponded =
+    isInvite &&
+    notification.inviteId &&
+    (inviteStatus === "ACCEPTED" || inviteStatus === "DECLINED");
 
   return (
     <div
@@ -139,10 +153,7 @@ export default function NotificationItem({
 
       {/* Content */}
       <div className="flex-1 min-w-0">
-        <div
-          className="cursor-pointer"
-          onClick={handleMarkRead}
-        >
+        <div className="cursor-pointer" onClick={handleMarkRead}>
           <p className={cn(
             "text-sm",
             !notification.read && "font-medium"
@@ -156,8 +167,8 @@ export default function NotificationItem({
           </p>
         </div>
 
-        {/* Accept/Decline buttons for invites */}
-        {isInvite && !responded && notification.inviteId && (
+        {/* ✅ Show buttons only if PENDING */}
+        {showInviteButtons && (
           <div className="flex gap-2 mt-2">
             <Button
               size="sm"
@@ -165,7 +176,11 @@ export default function NotificationItem({
               onClick={() => handleInviteResponse("accept")}
               disabled={isLoading}
             >
-              <Check className="h-3 w-3 mr-1" />
+              {isLoading ? (
+                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+              ) : (
+                <Check className="h-3 w-3 mr-1" />
+              )}
               Accept
             </Button>
             <Button
@@ -175,15 +190,27 @@ export default function NotificationItem({
               onClick={() => handleInviteResponse("decline")}
               disabled={isLoading}
             >
-              <X className="h-3 w-3 mr-1" />
+              {isLoading ? (
+                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+              ) : (
+                <X className="h-3 w-3 mr-1" />
+              )}
               Decline
             </Button>
           </div>
         )}
 
-        {isInvite && responded && (
-          <p className="text-xs text-muted-foreground mt-1 italic">
-            You have responded to this invite
+        {/* ✅ Show status if already responded */}
+        {alreadyResponded && (
+          <p className={cn(
+            "text-xs mt-1 italic",
+            inviteStatus === "ACCEPTED"
+              ? "text-green-500"
+              : "text-muted-foreground"
+          )}>
+            {inviteStatus === "ACCEPTED"
+              ? "✓ You joined this project"
+              : "✗ You declined this invite"}
           </p>
         )}
       </div>
@@ -200,7 +227,11 @@ export default function NotificationItem({
           onClick={handleDelete}
           disabled={isLoading}
         >
-          <Trash2 className="h-3 w-3" />
+          {isLoading ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <Trash2 className="h-3 w-3" />
+          )}
         </Button>
       </div>
     </div>
