@@ -5,7 +5,9 @@ import prisma from "@/lib/prisma";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { NotificationType } from "@prisma/client";
 
-type Params = Promise<{ inviteId: string }>;
+type Params = {
+  inviteId: string;
+};
 
 export async function PATCH(
   req: NextRequest,
@@ -13,11 +15,16 @@ export async function PATCH(
 ) {
   try {
     const session = await getServerSession(authOptions);
+
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
-    const { inviteId } = await params;
+    const { inviteId } = params;
+
     const body = await req.json();
     const { action } = body;
 
@@ -37,26 +44,36 @@ export async function PATCH(
     });
 
     if (!invite) {
-      return NextResponse.json({ error: "Invite not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Invite not found" },
+        { status: 404 }
+      );
     }
 
     if (invite.receiverId !== session.user.id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return NextResponse.json(
+        { error: "Forbidden" },
+        { status: 403 }
+      );
     }
 
     if (invite.status !== "PENDING") {
       return NextResponse.json(
-        { error: "Invite has already been responded to" },
+        { error: "Invite already handled" },
         { status: 400 }
       );
     }
 
+    // =========================
+    // ACCEPT INVITE
+    // =========================
     if (action === "accept") {
       await prisma.$transaction([
         prisma.projectInvite.update({
           where: { id: inviteId },
           data: { status: "ACCEPTED" },
         }),
+
         prisma.projectMember.create({
           data: {
             projectId: invite.projectId,
@@ -64,17 +81,17 @@ export async function PATCH(
             role: invite.role,
           },
         }),
+
         prisma.activityLog.create({
           data: {
             action: "MEMBER_ADDED",
-            message: `A new member joined the project`,
+            message: "A new member joined the project",
             projectId: invite.projectId,
             userId: session.user.id,
           },
         }),
       ]);
 
-      // Notify sender
       await prisma.notification.create({
         data: {
           type: NotificationType.MEMBER_ADDED,
@@ -83,13 +100,14 @@ export async function PATCH(
         },
       });
 
-      // Revalidate receiver's notifications
-      revalidateTag(`notifications-${session.user.id}`);
-      revalidateTag(`unread-notifications-${session.user.id}`);
+      // =========================
+      // CACHE REVALIDATION (FIXED NEXT 16)
+      // =========================
+      revalidateTag(`notifications-${session.user.id}`, "default");
+      revalidateTag(`unread-notifications-${session.user.id}`, "default");
 
-      // Revalidate sender's notifications
-      revalidateTag(`notifications-${invite.senderId}`);
-      revalidateTag(`unread-notifications-${invite.senderId}`);
+      revalidateTag(`notifications-${invite.senderId}`, "default");
+      revalidateTag(`unread-notifications-${invite.senderId}`, "default");
 
       revalidatePath(`/projects/${invite.projectId}`);
       revalidatePath(`/projects/${invite.projectId}/members`);
@@ -97,36 +115,41 @@ export async function PATCH(
       revalidatePath("/notifications");
       revalidatePath("/");
 
-      return NextResponse.json({ message: "Invite accepted successfully" });
-    } else {
-      await prisma.projectInvite.update({
-        where: { id: inviteId },
-        data: { status: "DECLINED" },
+      return NextResponse.json({
+        message: "Invite accepted successfully",
       });
-
-      // Notify sender
-      await prisma.notification.create({
-        data: {
-          type: NotificationType.MEMBER_ADDED,
-          message: `Your invite to "${invite.project.name}" was declined`,
-          userId: invite.senderId,
-        },
-      });
-
-      // Revalidate receiver's notifications
-      revalidateTag(`notifications-${session.user.id}`);
-      revalidateTag(`unread-notifications-${session.user.id}`);
-
-      // Revalidate sender's notifications
-      revalidateTag(`notifications-${invite.senderId}`);
-      revalidateTag(`unread-notifications-${invite.senderId}`);
-
-      revalidatePath("/notifications");
-
-      return NextResponse.json({ message: "Invite declined" });
     }
+
+    // =========================
+    // DECLINE INVITE
+    // =========================
+    await prisma.projectInvite.update({
+      where: { id: inviteId },
+      data: { status: "DECLINED" },
+    });
+
+    await prisma.notification.create({
+      data: {
+        type: NotificationType.MEMBER_ADDED,
+        message: `Your invite to "${invite.project.name}" was declined`,
+        userId: invite.senderId,
+      },
+    });
+
+    revalidateTag(`notifications-${session.user.id}`, "default");
+    revalidateTag(`unread-notifications-${session.user.id}`, "default");
+
+    revalidateTag(`notifications-${invite.senderId}`, "default");
+    revalidateTag(`unread-notifications-${invite.senderId}`, "default");
+
+    revalidatePath("/notifications");
+
+    return NextResponse.json({
+      message: "Invite declined",
+    });
   } catch (error) {
     console.error("[INVITE_PATCH]", error);
+
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
