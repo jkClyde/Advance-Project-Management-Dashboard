@@ -5,13 +5,9 @@ import prisma from "@/lib/prisma";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { NotificationType } from "@prisma/client";
 
-type Params = {
-  inviteId: string;
-};
-
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Params }
+  context: { params: Promise<{ inviteId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -23,7 +19,7 @@ export async function PATCH(
       );
     }
 
-    const { inviteId } = params;
+    const { inviteId } = await context.params;
 
     const body = await req.json();
     const { action } = body;
@@ -64,16 +60,12 @@ export async function PATCH(
       );
     }
 
-    // =========================
-    // ACCEPT INVITE
-    // =========================
     if (action === "accept") {
       await prisma.$transaction([
         prisma.projectInvite.update({
           where: { id: inviteId },
           data: { status: "ACCEPTED" },
         }),
-
         prisma.projectMember.create({
           data: {
             projectId: invite.projectId,
@@ -81,7 +73,6 @@ export async function PATCH(
             role: invite.role,
           },
         }),
-
         prisma.activityLog.create({
           data: {
             action: "MEMBER_ADDED",
@@ -100,12 +91,8 @@ export async function PATCH(
         },
       });
 
-      // =========================
-      // CACHE REVALIDATION (FIXED NEXT 16)
-      // =========================
       revalidateTag(`notifications-${session.user.id}`, "default");
       revalidateTag(`unread-notifications-${session.user.id}`, "default");
-
       revalidateTag(`notifications-${invite.senderId}`, "default");
       revalidateTag(`unread-notifications-${invite.senderId}`, "default");
 
@@ -120,9 +107,6 @@ export async function PATCH(
       });
     }
 
-    // =========================
-    // DECLINE INVITE
-    // =========================
     await prisma.projectInvite.update({
       where: { id: inviteId },
       data: { status: "DECLINED" },
@@ -138,7 +122,6 @@ export async function PATCH(
 
     revalidateTag(`notifications-${session.user.id}`, "default");
     revalidateTag(`unread-notifications-${session.user.id}`, "default");
-
     revalidateTag(`notifications-${invite.senderId}`, "default");
     revalidateTag(`unread-notifications-${invite.senderId}`, "default");
 
