@@ -5,22 +5,29 @@ import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { NotificationType } from "@prisma/client";
 
-type Params = Promise<{ inviteId: string }>;
+type Params = {
+  inviteId: string;
+};
 
-// PATCH /api/invites/[inviteId] - Accept or decline invite
+// PATCH /api/invites/[inviteId]
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Params }
 ) {
   try {
     const session = await getServerSession(authOptions);
+
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
-    const { inviteId } = await params;
+    const { inviteId } = params;
+
     const body = await req.json();
-    const { action } = body; // "accept" or "decline"
+    const { action } = body; // "accept" | "decline"
 
     if (!["accept", "decline"].includes(action)) {
       return NextResponse.json(
@@ -29,7 +36,6 @@ export async function PATCH(
       );
     }
 
-    // Get invite
     const invite = await prisma.projectInvite.findUnique({
       where: { id: inviteId },
       include: {
@@ -39,30 +45,34 @@ export async function PATCH(
     });
 
     if (!invite) {
-      return NextResponse.json({ error: "Invite not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Invite not found" },
+        { status: 404 }
+      );
     }
 
-    // Only the receiver can respond
     if (invite.receiverId !== session.user.id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return NextResponse.json(
+        { error: "Forbidden" },
+        { status: 403 }
+      );
     }
 
     if (invite.status !== "PENDING") {
       return NextResponse.json(
-        { error: "Invite has already been responded to" },
+        { error: "Invite already handled" },
         { status: 400 }
       );
     }
 
+    // ✅ ACCEPT
     if (action === "accept") {
-      // Add user to project
       await prisma.$transaction([
-        // Update invite status
         prisma.projectInvite.update({
           where: { id: inviteId },
           data: { status: "ACCEPTED" },
         }),
-        // Add member to project
+
         prisma.projectMember.create({
           data: {
             projectId: invite.projectId,
@@ -70,18 +80,17 @@ export async function PATCH(
             role: invite.role,
           },
         }),
-        // Log activity
+
         prisma.activityLog.create({
           data: {
             action: "MEMBER_ADDED",
-            message: `A new member joined the project`,
+            message: "A new member joined the project",
             projectId: invite.projectId,
             userId: session.user.id,
           },
         }),
       ]);
 
-      // Notify sender that invite was accepted
       await prisma.notification.create({
         data: {
           type: NotificationType.MEMBER_ADDED,
@@ -95,27 +104,31 @@ export async function PATCH(
       revalidatePath("/projects");
       revalidatePath("/");
 
-      return NextResponse.json({ message: "Invite accepted successfully" });
-    } else {
-      // Decline invite
-      await prisma.projectInvite.update({
-        where: { id: inviteId },
-        data: { status: "DECLINED" },
+      return NextResponse.json({
+        message: "Invite accepted successfully",
       });
-
-      // Notify sender that invite was declined
-      await prisma.notification.create({
-        data: {
-          type: NotificationType.MEMBER_ADDED,
-          message: `Your invite to "${invite.project.name}" was declined`,
-          userId: invite.senderId,
-        },
-      });
-
-      return NextResponse.json({ message: "Invite declined" });
     }
+
+    // ❌ DECLINE
+    await prisma.projectInvite.update({
+      where: { id: inviteId },
+      data: { status: "DECLINED" },
+    });
+
+    await prisma.notification.create({
+      data: {
+        type: NotificationType.MEMBER_ADDED,
+        message: `Your invite to "${invite.project.name}" was declined`,
+        userId: invite.senderId,
+      },
+    });
+
+    return NextResponse.json({
+      message: "Invite declined",
+    });
   } catch (error) {
     console.error("[INVITE_PATCH]", error);
+
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
