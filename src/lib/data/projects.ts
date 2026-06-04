@@ -108,3 +108,29 @@ export const getOpenTaskCountsByUser = unstable_cache(
   ["open-task-counts"],
   { revalidate: 30 }
 );
+
+export const getPendingInvites = async (projectId: string) => {
+  return prisma.projectInvite.findMany({
+    where: {
+      projectId,
+      status: "PENDING",
+    },
+    include: {
+      receiver: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          image: true,
+        },
+      },
+      sender: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+};

@@ -56,7 +56,7 @@ export default function InviteMemberButton({
     setIsLoading(true);
     try {
       const response = await fetch(
-        `/api/projects/${projectId}/members`,
+        `/api/projects/${projectId}/invites`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

@@ -1,8 +1,8 @@
 import { getServerSession } from "next-auth";
+import { Users, Mail } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { redirect, notFound } from "next/navigation";
-import { getProjectById, getProjectMember } from "@/lib/data/projects";
-import { Users } from "lucide-react";
+import { getProjectById, getProjectMember, getPendingInvites } from "@/lib/data/projects";
 import {
   Card,
   CardContent,
@@ -27,9 +27,11 @@ export default async function MembersPage({
   const userId = session.user.id;
   const { projectId } = await params;
 
-  const [project, member] = await Promise.all([
+  // ✅ Correctly destructure all 3 values
+  const [project, member, pendingInvites] = await Promise.all([
     getProjectById(projectId, userId),
     getProjectMember(projectId, userId),
+    getPendingInvites(projectId),
   ]);
 
   if (!project) notFound();
@@ -48,7 +50,7 @@ export default async function MembersPage({
   };
 
   return (
-    <div className="py-6 space-y-6  md:p-6 space-y-6 ">
+    <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -123,6 +125,61 @@ export default async function MembersPage({
           ))}
         </CardContent>
       </Card>
+
+      {/* ✅ Pending Invites — OUTSIDE the members card */}
+      {canManage && pendingInvites.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5" />
+              Pending Invites
+              <Badge variant="secondary" className="ml-1">
+                {pendingInvites.length}
+              </Badge>
+            </CardTitle>
+            <CardDescription>
+              Waiting for response from invited users
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {pendingInvites.map((invite) => (
+              <div
+                key={invite.id}
+                className="flex items-center justify-between p-3 rounded-lg border border-dashed"
+              >
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-9 w-9">
+                    <AvatarImage src={invite.receiver.image ?? ""} />
+                    <AvatarFallback>
+                      {invite.receiver.name?.charAt(0) ?? "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="text-sm font-medium">{invite.receiver.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {invite.receiver.email}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Invited by {invite.sender.name} ·{" "}
+                      {formatDistanceToNow(new Date(invite.createdAt), {
+                        addSuffix: true,
+                      })}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-xs">
+                    {invite.role}
+                  </Badge>
+                  <Badge variant="secondary" className="text-xs">
+                    Pending
+                  </Badge>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

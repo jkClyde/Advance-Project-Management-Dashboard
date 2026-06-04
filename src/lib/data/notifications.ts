@@ -11,6 +11,7 @@ export const getNotificationsByUserId = unstable_cache(
         message: true,
         read: true,
         createdAt: true,
+        inviteId: true, // ✅ add this
       },
       orderBy: { createdAt: "desc" },
     });

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
-import { Trash2 } from "lucide-react";
+import { Trash2, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   BellRing,
@@ -13,6 +13,7 @@ import {
   UserPlus,
   MessageSquare,
   Clock,
+  Mail,
 } from "lucide-react";
 
 interface Notification {
@@ -21,6 +22,7 @@ interface Notification {
   message: string;
   read: boolean;
   createdAt: Date;
+  inviteId?: string | null;
 }
 
 interface NotificationItemProps {
@@ -32,6 +34,7 @@ export default function NotificationItem({
 }: NotificationItemProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [responded, setResponded] = useState(false);
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -43,6 +46,8 @@ export default function NotificationItem({
         return <Clock className="h-4 w-4 text-yellow-500" />;
       case "MEMBER_ADDED":
         return <UserPlus className="h-4 w-4 text-green-500" />;
+      case "PROJECT_INVITE":
+        return <Mail className="h-4 w-4 text-primary" />;
       default:
         return <BellRing className="h-4 w-4 text-muted-foreground" />;
     }
@@ -50,7 +55,6 @@ export default function NotificationItem({
 
   const handleMarkRead = async () => {
     if (notification.read) return;
-    setIsLoading(true);
     try {
       await fetch("/api/notifications", {
         method: "PATCH",
@@ -60,8 +64,6 @@ export default function NotificationItem({
       router.refresh();
     } catch {
       toast.error("Failed to mark as read");
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -81,6 +83,48 @@ export default function NotificationItem({
     }
   };
 
+  const handleInviteResponse = async (action: "accept" | "decline") => {
+    if (!notification.inviteId) return;
+    setIsLoading(true);
+    try {
+      const response = await fetch(
+        `/api/invites/${notification.inviteId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action }),
+        }
+      );
+
+      if (!response.ok) {
+        const result = await response.json();
+        toast.error(result.error || "Failed to respond to invite");
+        return;
+      }
+
+      // Mark notification as read
+      await fetch("/api/notifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notificationId: notification.id }),
+      });
+
+      setResponded(true);
+      toast.success(
+        action === "accept"
+          ? "You joined the project!"
+          : "Invite declined"
+      );
+      router.refresh();
+    } catch {
+      toast.error("Something went wrong");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const isInvite = notification.type === "PROJECT_INVITE";
+
   return (
     <div
       className={cn(
@@ -94,21 +138,54 @@ export default function NotificationItem({
       </div>
 
       {/* Content */}
-      <div
-        className="flex-1 min-w-0 cursor-pointer"
-        onClick={handleMarkRead}
-      >
-        <p className={cn(
-          "text-sm",
-          !notification.read && "font-medium"
-        )}>
-          {notification.message}
-        </p>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          {formatDistanceToNow(new Date(notification.createdAt), {
-            addSuffix: true,
-          })}
-        </p>
+      <div className="flex-1 min-w-0">
+        <div
+          className="cursor-pointer"
+          onClick={handleMarkRead}
+        >
+          <p className={cn(
+            "text-sm",
+            !notification.read && "font-medium"
+          )}>
+            {notification.message}
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {formatDistanceToNow(new Date(notification.createdAt), {
+              addSuffix: true,
+            })}
+          </p>
+        </div>
+
+        {/* Accept/Decline buttons for invites */}
+        {isInvite && !responded && notification.inviteId && (
+          <div className="flex gap-2 mt-2">
+            <Button
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => handleInviteResponse("accept")}
+              disabled={isLoading}
+            >
+              <Check className="h-3 w-3 mr-1" />
+              Accept
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs"
+              onClick={() => handleInviteResponse("decline")}
+              disabled={isLoading}
+            >
+              <X className="h-3 w-3 mr-1" />
+              Decline
+            </Button>
+          </div>
+        )}
+
+        {isInvite && responded && (
+          <p className="text-xs text-muted-foreground mt-1 italic">
+            You have responded to this invite
+          </p>
+        )}
       </div>
 
       {/* Actions */}
