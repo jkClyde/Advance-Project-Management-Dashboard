@@ -8,29 +8,25 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// =============================
-// AUTH MODELS (NextAuth)
-
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
-  password      String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  accounts       Account[]
-  sessions       Session[]
-  projectMembers ProjectMember[]
-  assignedTasks  Task[]          @relation("TaskAssignee")
-  createdTasks   Task[]          @relation("TaskCreator")
-  comments       Comment[]
-  notifications  Notification[]
-  activityLogs   ActivityLog[]
-  sentInvites    ProjectInvite[] @relation("InviteSender")
+  id              String          @id @default(cuid())
+  name            String?
+  email           String?         @unique
+  emailVerified   DateTime?
+  image           String?
+  password        String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  accounts        Account[]
+  activityLogs    ActivityLog[]
+  comments        Comment[]
+  notifications   Notification[]
   receivedInvites ProjectInvite[] @relation("InviteReceiver")
+  sentInvites     ProjectInvite[] @relation("InviteSender")
+  projectMembers  ProjectMember[]
+  sessions        Session[]
+  assignedTasks   Task[]          @relation("TaskAssignee")
+  createdTasks    Task[]          @relation("TaskCreator")
 }
 
 model Account {
@@ -46,8 +42,7 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
@@ -57,8 +52,7 @@ model Session {
   sessionToken String   @unique
   userId       String
   expires      DateTime
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model VerificationToken {
@@ -70,19 +64,18 @@ model VerificationToken {
 }
 
 model Project {
-  id          String      @id @default(cuid())
-  name        String
-  description String?
-  visibility  Visibility  @default(PRIVATE)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  ownerId     String
-
+  id           String          @id @default(cuid())
+  name         String
+  description  String?
+  visibility   Visibility      @default(PRIVATE)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  ownerId      String
+  activityLogs ActivityLog[]
+  labels       Label[]
+  invites      ProjectInvite[]
   members      ProjectMember[]
   tasks        Task[]
-  labels       Label[]
-  activityLogs ActivityLog[]
-  invites      ProjectInvite[]
 }
 
 model ProjectMember {
@@ -91,60 +84,55 @@ model ProjectMember {
   userId    String
   role      MemberRole @default(CONTRIBUTOR)
   joinedAt  DateTime   @default(now())
-
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, userId])
 }
 
 model ProjectInvite {
-  id        String       @id @default(cuid())
-  projectId String
-  senderId  String
+  id         String       @id @default(cuid())
+  projectId  String
+  senderId   String
   receiverId String
-  role      MemberRole   @default(CONTRIBUTOR)
-  status    InviteStatus @default(PENDING)
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
-
-  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  sender   User    @relation("InviteSender", fields: [senderId], references: [id], onDelete: Cascade)
-  receiver User    @relation("InviteReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  role       MemberRole   @default(CONTRIBUTOR)
+  status     InviteStatus @default(PENDING)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  project    Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  receiver   User         @relation("InviteReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  sender     User         @relation("InviteSender", fields: [senderId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, receiverId])
 }
 
 model Task {
-  id          String     @id @default(cuid())
-  title       String
-  description String?
-  status      TaskStatus @default(OPEN)
-  priority    Priority   @default(MEDIUM)
-  dueDate     DateTime?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-
-  projectId  String
-  creatorId  String
-  assigneeId String?
-
-  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  creator      User          @relation("TaskCreator", fields: [creatorId], references: [id])
-  assignee     User?         @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  comments     Comment[]
-  labels       TaskLabel[]
+  id           String        @id @default(cuid())
+  title        String
+  description  String?
+  status       TaskStatus    @default(OPEN)
+  priority     Priority      @default(MEDIUM)
+  dueDate      DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  projectId    String
+  creatorId    String
+  assigneeId   String?
   activityLogs ActivityLog[]
+  comments     Comment[]
+  assignee     User?         @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  creator      User          @relation("TaskCreator", fields: [creatorId], references: [id])
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  labels       TaskLabel[]
 }
 
 model Label {
-  id        String @id @default(cuid())
+  id        String      @id @default(cuid())
   name      String
-  color     String @default("#6366f1")
+  color     String      @default("#6366f1")
   projectId String
-
-  project Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  tasks   TaskLabel[]
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks     TaskLabel[]
 
   @@unique([name, projectId])
 }
@@ -152,9 +140,8 @@ model Label {
 model TaskLabel {
   taskId  String
   labelId String
-
-  task  Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  label Label @relation(fields: [labelId], references: [id], onDelete: Cascade)
+  label   Label  @relation(fields: [labelId], references: [id], onDelete: Cascade)
+  task    Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   @@id([taskId, labelId])
 }
@@ -164,12 +151,10 @@ model Comment {
   content   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  taskId   String
-  authorId String
-
-  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  taskId    String
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
 }
 
 model Notification {
@@ -178,12 +163,9 @@ model Notification {
   message   String
   read      Boolean          @default(false)
   createdAt DateTime         @default(now())
-
-  // Optional link to invite for accept/decline
+  userId    String
   inviteId  String?
-
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model ActivityLog {
@@ -191,14 +173,12 @@ model ActivityLog {
   action    ActivityAction
   message   String
   createdAt DateTime       @default(now())
-
   projectId String
   userId    String
   taskId    String?
-
-  project Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  task    Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  project   Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task      Task?          @relation(fields: [taskId], references: [id])
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 enum Visibility {

@@ -36,56 +36,66 @@ export const getProjectsByUserId = unstable_cache(
     });
   },
   ["projects-by-user"],
-  { revalidate: 30 }
+  { revalidate: 60 }
 );
 
-// ✅ No unstable_cache — plain async, arguments passed directly
 export const getProjectById = async (projectId: string, userId: string) => {
-  return prisma.project.findFirst({
-    where: {
-      id: projectId,
-      members: { some: { userId } },
-    },
-    select: {
-      id: true,
-      name: true,
-      description: true,
-      visibility: true,
-      ownerId: true,
-      createdAt: true,
-      updatedAt: true,
-      members: {
+  return unstable_cache(
+    async () => {
+      return prisma.project.findFirst({
+        where: {
+          id: projectId,
+          members: { some: { userId } },
+        },
         select: {
-          role: true,
-          joinedAt: true,
-          user: {
+          id: true,
+          name: true,
+          description: true,
+          visibility: true,
+          ownerId: true,
+          createdAt: true,
+          updatedAt: true,
+          members: {
             select: {
-              id: true,
-              name: true,
-              email: true,
-              image: true,
+              role: true,
+              joinedAt: true,
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  image: true,
+                },
+              },
+            },
+          },
+          labels: true,
+          _count: {
+            select: {
+              tasks: true,
+              members: true,
             },
           },
         },
-      },
-      labels: true,
-      _count: {
-        select: {
-          tasks: true,
-          members: true,
-        },
-      },
+      });
     },
-  });
+    [`project-${projectId}-${userId}`],
+    { revalidate: 60 }
+  )();
 };
 
-// ✅ No unstable_cache — plain async
 export const getProjectMember = async (projectId: string, userId: string) => {
-  return prisma.projectMember.findUnique({
-    where: {
-      projectId_userId: { projectId, userId },
+  return unstable_cache(
+    async () => {
+      return prisma.projectMember.findUnique({
+        where: {
+          projectId_userId: { projectId, userId },
+        },
+      });
     },
-  });
+    [`member-${projectId}-${userId}`],
+    { revalidate: 60 }
+  )();
 };
 
 export const getOpenTaskCountsByUser = unstable_cache(
@@ -106,34 +116,8 @@ export const getOpenTaskCountsByUser = unstable_cache(
     );
   },
   ["open-task-counts"],
-  { revalidate: 30 }
+  { revalidate: 60 }
 );
-
-export const getPendingInvites = async (projectId: string) => {
-  return prisma.projectInvite.findMany({
-    where: {
-      projectId,
-      status: "PENDING",
-    },
-    include: {
-      receiver: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          image: true,
-        },
-      },
-      sender: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-    },
-    orderBy: { createdAt: "desc" },
-  });
-};
 
 export const getRecentProjectsByUserId = unstable_cache(
   async (userId: string) => {
@@ -150,6 +134,38 @@ export const getRecentProjectsByUserId = unstable_cache(
       take: 5,
     });
   },
-  ["recent-projects-by-user"],
-  { revalidate: 30 }
+  ["recent-projects"],
+  { revalidate: 60 }
 );
+
+export const getPendingInvites = async (projectId: string) => {
+  return unstable_cache(
+    async () => {
+      return prisma.projectInvite.findMany({
+        where: {
+          projectId,
+          status: "PENDING",
+        },
+        include: {
+          receiver: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              image: true,
+            },
+          },
+          sender: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+    },
+    [`pending-invites-${projectId}`],
+    { revalidate: 30 }
+  )();
+};
