@@ -134,3 +134,22 @@ export const getPendingInvites = async (projectId: string) => {
     orderBy: { createdAt: "desc" },
   });
 };
+
+export const getRecentProjectsByUserId = unstable_cache(
+  async (userId: string) => {
+    return prisma.project.findMany({
+      where: {
+        members: { some: { userId } },
+      },
+      select: {
+        id: true,
+        name: true,
+        visibility: true,
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 5,
+    });
+  },
+  ["recent-projects-by-user"],
+  { revalidate: 30 }
+);

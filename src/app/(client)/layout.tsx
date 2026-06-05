@@ -8,6 +8,7 @@ import { authOptions } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import AuthProvider from "@/components/AuthProvider"
 import { Toaster } from "sonner"
+import { getRecentProjectsByUserId } from "@/lib/data/projects"
 
 export default async function ClientLayout({
   children,
@@ -21,6 +22,9 @@ export default async function ClientLayout({
 
   const cookieStore = await cookies()
   const defaultOpen = cookieStore.get("sidebar_state")?.value === "true"
+
+  // ✅ Fetch real projects for sidebar
+  const recentProjects = await getRecentProjectsByUserId(session.user.id)
 
   return (
     <AuthProvider>
@@ -44,7 +48,7 @@ export default async function ClientLayout({
         />
         <SidebarProvider defaultOpen={defaultOpen}>
           <div className="flex w-full min-h-screen bg-background text-foreground">
-            <AppSidebar />
+            <AppSidebar recentProjects={recentProjects} />
             <main className="w-full">
               <Navbar />
               <div className="px-4">{children}</div>

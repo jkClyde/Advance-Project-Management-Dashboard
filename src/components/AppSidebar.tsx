@@ -7,6 +7,9 @@ import {
   Plus,
   User,
   LayoutDashboard,
+  Lock,
+  Globe,
+  ChevronRight,
 } from "lucide-react";
 import {
   Sidebar,
@@ -30,7 +33,17 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useUnreadNotifications } from "@/hooks/use-notifications";
 
-const AppSidebar = () => {
+interface RecentProject {
+  id: string;
+  name: string;
+  visibility: string;
+}
+
+interface AppSidebarProps {
+  recentProjects: RecentProject[];
+}
+
+const AppSidebar = ({ recentProjects }: AppSidebarProps) => {
   const pathname = usePathname();
   const { unreadCount } = useUnreadNotifications();
   const { isMobile, setOpenMobile } = useSidebar();
@@ -85,6 +98,7 @@ const AppSidebar = () => {
       <SidebarSeparator />
 
       <SidebarContent>
+        {/* Main Navigation */}
         <SidebarGroup>
           <SidebarGroupLabel>Main</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -103,11 +117,11 @@ const AppSidebar = () => {
                       <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
-                  {/* {item.badge && item.badge > 0 && (
+                  {item.badge && item.badge > 0 && (
                     <SidebarMenuBadge>
                       {item.badge > 99 ? "99+" : item.badge}
                     </SidebarMenuBadge>
-                  )} */}
+                  )}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
@@ -116,6 +130,7 @@ const AppSidebar = () => {
 
         <SidebarSeparator />
 
+        {/* Projects */}
         <SidebarGroup>
           <SidebarGroupLabel>Projects</SidebarGroupLabel>
           <SidebarGroupAction asChild>
@@ -126,14 +141,53 @@ const AppSidebar = () => {
           </SidebarGroupAction>
           <SidebarGroupContent>
             <SidebarMenu>
+              {/* Recent projects */}
+              {recentProjects.map((project) => (
+                <SidebarMenuItem key={project.id}>
+                  <SidebarMenuButton
+                    asChild
+                    className={cn(
+                      pathname.startsWith(`/projects/${project.id}`) &&
+                        "bg-accent text-accent-foreground"
+                    )}
+                  >
+                    <Link
+                      href={`/projects/${project.id}`}
+                      onClick={handleNavClick}
+                      className="flex items-center gap-2"
+                    >
+                      {project.visibility === "PRIVATE" ? (
+                        <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      ) : (
+                        <Globe className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      )}
+                      <span className="truncate">{project.name}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+
+              {/* View all projects */}
               <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link href="/projects" onClick={handleNavClick}>
-                    <FolderKanban className="h-4 w-4" />
+                <SidebarMenuButton
+                  asChild
+                  className={cn(
+                    pathname === "/projects" &&
+                      "bg-accent text-accent-foreground"
+                  )}
+                >
+                  <Link
+                    href="/projects"
+                    onClick={handleNavClick}
+                    className="text-muted-foreground"
+                  >
+                    <ChevronRight className="h-4 w-4" />
                     <span>All Projects</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+
+              {/* New project */}
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
                   <Link href="/projects/new" onClick={handleNavClick}>
