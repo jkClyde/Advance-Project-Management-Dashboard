@@ -4,7 +4,6 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { revalidatePath, revalidateTag } from "next/cache";
 
-// GET /api/notifications
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -40,7 +39,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// PATCH /api/notifications - Mark as read
 export async function PATCH(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -60,8 +58,8 @@ export async function PATCH(req: NextRequest) {
         data: { read: true },
       });
 
-      revalidateTag(`notifications-${session.user.id}`);
-      revalidateTag(`unread-notifications-${session.user.id}`);
+      revalidateTag(`notifications-${session.user.id}`, "fetch");
+      revalidateTag(`unread-notifications-${session.user.id}`, "fetch");
       revalidatePath("/notifications");
 
       return NextResponse.json({
@@ -84,8 +82,8 @@ export async function PATCH(req: NextRequest) {
       data: { read: true },
     });
 
-    revalidateTag(`notifications-${session.user.id}`);
-    revalidateTag(`unread-notifications-${session.user.id}`);
+    revalidateTag(`notifications-${session.user.id}`, "fetch");
+    revalidateTag(`unread-notifications-${session.user.id}`, "fetch");
     revalidatePath("/notifications");
 
     return NextResponse.json(notification);
@@ -98,7 +96,6 @@ export async function PATCH(req: NextRequest) {
   }
 }
 
-// DELETE /api/notifications
 export async function DELETE(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -115,8 +112,8 @@ export async function DELETE(req: NextRequest) {
         where: { userId: session.user.id },
       });
 
-      revalidateTag(`notifications-${session.user.id}`);
-      revalidateTag(`unread-notifications-${session.user.id}`);
+      revalidateTag(`notifications-${session.user.id}`, "fetch");
+      revalidateTag(`unread-notifications-${session.user.id}`, "fetch");
       revalidatePath("/notifications");
 
       return NextResponse.json({ message: "All notifications deleted" });
@@ -136,8 +133,8 @@ export async function DELETE(req: NextRequest) {
       },
     });
 
-    revalidateTag(`notifications-${session.user.id}`);
-    revalidateTag(`unread-notifications-${session.user.id}`);
+    revalidateTag(`notifications-${session.user.id}`, "fetch");
+    revalidateTag(`unread-notifications-${session.user.id}`, "fetch");
     revalidatePath("/notifications");
 
     return NextResponse.json({ message: "Notification deleted successfully" });
