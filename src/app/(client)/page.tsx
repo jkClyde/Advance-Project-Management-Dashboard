@@ -17,6 +17,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { formatDistanceToNow } from "date-fns";
+import type { Metadata } from "next"
+export const metadata: Metadata = { title: "Dashboard" };
+
+
+
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);

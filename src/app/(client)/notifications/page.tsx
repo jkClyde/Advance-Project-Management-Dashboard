@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/card";
 import MarkAllReadButton from "@/components/features/notifications/MarkAllReadButton";
 import NotificationItem from "@/components/features/notifications/NotificationItem";
+import type { Metadata } from "next"
+export const metadata: Metadata = { title: "Notifications" };
 
 export default async function NotificationsPage() {
   const session = await getServerSession(authOptions);

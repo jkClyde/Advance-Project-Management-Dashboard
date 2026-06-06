@@ -109,7 +109,7 @@ const AppSidebar = ({ recentProjects }: AppSidebarProps) => {
                     asChild
                     className={cn(
                       pathname === item.url &&
-                        "bg-accent text-accent-foreground"
+                      "bg-accent text-accent-foreground"
                     )}
                   >
                     <Link href={item.url} onClick={handleNavClick}>
@@ -117,11 +117,11 @@ const AppSidebar = ({ recentProjects }: AppSidebarProps) => {
                       <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
-                  {item.badge && item.badge > 0 && (
+                  {/* {item.badge && item.badge > 0 && (
                     <SidebarMenuBadge>
                       {item.badge > 99 ? "99+" : item.badge}
                     </SidebarMenuBadge>
-                  )}
+                  )} */}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
@@ -148,7 +148,7 @@ const AppSidebar = ({ recentProjects }: AppSidebarProps) => {
                     asChild
                     className={cn(
                       pathname.startsWith(`/projects/${project.id}`) &&
-                        "bg-accent text-accent-foreground"
+                      "bg-accent text-accent-foreground"
                     )}
                   >
                     <Link
@@ -173,7 +173,7 @@ const AppSidebar = ({ recentProjects }: AppSidebarProps) => {
                   asChild
                   className={cn(
                     pathname === "/projects" &&
-                      "bg-accent text-accent-foreground"
+                    "bg-accent text-accent-foreground"
                   )}
                 >
                   <Link

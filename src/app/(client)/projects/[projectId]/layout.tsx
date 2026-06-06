@@ -9,6 +9,22 @@ import {
   Globe,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import type { Metadata } from "next"
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ projectId: string }>;
+}): Promise<Metadata> {
+  const session = await getServerSession(authOptions);
+  const { projectId } = await params;
+  const project = await getProjectById(projectId, session?.user?.id ?? "");
+
+  return {
+    title: project?.name ?? "Project",
+  };
+}
+
 
 const navTabs = (projectId: string) => [
   {

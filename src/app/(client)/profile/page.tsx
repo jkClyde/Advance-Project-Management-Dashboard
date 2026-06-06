@@ -15,6 +15,8 @@ import { Separator } from "@/components/ui/separator";
 import { formatDistanceToNow, format } from "date-fns";
 import { FolderKanban, CheckCircle2, Calendar } from "lucide-react";
 import UpdateProfileForm from "@/components/features/profile/UpdateProfileForm";
+import type { Metadata } from "next"
+export const metadata: Metadata = { title: "Profile" };
 
 export default async function ProfilePage() {
   const session = await getServerSession(authOptions);

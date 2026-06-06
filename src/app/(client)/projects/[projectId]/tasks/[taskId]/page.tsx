@@ -29,6 +29,21 @@ import { Separator } from "@/components/ui/separator";
 import { formatDistanceToNow, format } from "date-fns";
 import CommentSection from "@/components/features/tasks/CommentSection";
 import EditTaskButton from "@/components/features/tasks/EditTaskButton";
+import type { Metadata } from "next"
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ projectId: string; taskId: string }>;
+}): Promise<Metadata> {
+  const { taskId } = await params;
+  const task = await getTaskById(taskId);
+
+  return {
+    title: task?.title ?? "Task",
+  };
+}
+
 
 export default async function TaskPage({
   params,

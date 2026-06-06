@@ -10,6 +10,7 @@ import AuthProvider from "@/components/AuthProvider"
 import { Toaster } from "sonner"
 import { getRecentProjectsByUserId } from "@/lib/data/projects"
 
+
 export default async function ClientLayout({
   children,
 }: {
